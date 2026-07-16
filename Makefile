@@ -1,4 +1,4 @@
-.PHONY: help install hooks up down migrate dev worker test lint typecheck check fmt protect
+.PHONY: help install hooks up down migrate dev worker test lint typecheck check fmt protect usage
 
 help:
 	@echo "install   - create venv + install dev deps"
@@ -12,6 +12,7 @@ help:
 	@echo "typecheck - mypy --strict"
 	@echo "check     - lint + typecheck + test (what CI runs)"
 	@echo "protect   - apply GitHub branch protection to main (needs gh admin auth)"
+	@echo "usage     - record today's token usage to reports/usage/ (NOTE=\"...\")"
 
 install:
 	python3 -m venv .venv && . .venv/bin/activate && pip install -U pip && pip install -e ".[dev]"
@@ -47,3 +48,7 @@ hooks:
 
 protect:
 	bash scripts/apply-branch-protection.sh
+
+# usage NOTE="what this cycle was about"
+usage:
+	bash scripts/record-usage.sh "$(NOTE)"
