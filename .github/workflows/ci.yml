@@ -108,6 +108,11 @@ jobs:
   security:
     name: Security (secrets + deps)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # gitleaks-action lists the PR's commits via the API to scope its scan; without
+      # this it 403s. Granted on this job alone rather than widening the whole workflow.
+      pull-requests: read
     steps:
       - uses: actions/checkout@v4
         with:
