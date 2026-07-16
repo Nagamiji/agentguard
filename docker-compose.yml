@@ -7,10 +7,15 @@ services:
       POSTGRES_USER: keel
       POSTGRES_PASSWORD: keel
       POSTGRES_DB: keel
+    # Published on 5433: dev machines commonly run a native Postgres on 5432,
+    # whose loopback binding silently wins over Docker's — you end up talking to
+    # the wrong database. 5433 makes the local stack unambiguous.
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+      # Creates the least-privilege keel_app role (superusers bypass RLS — see the SQL).
+      - ./docker/initdb:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U keel"]
       interval: 5s

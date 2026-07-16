@@ -1,8 +1,9 @@
-.PHONY: help install up down dev worker test lint typecheck check fmt
+.PHONY: help install up down migrate dev worker test lint typecheck check fmt
 
 help:
 	@echo "install   - create venv + install dev deps"
 	@echo "up/down   - start/stop local Postgres+Redis (docker compose)"
+	@echo "migrate   - apply database migrations (alembic upgrade head)"
 	@echo "dev       - run the API (uvicorn, reload)"
 	@echo "worker    - run the worker"
 	@echo "test      - pytest"
@@ -18,6 +19,9 @@ up:
 
 down:
 	docker compose down
+
+migrate:
+	. .venv/bin/activate && alembic upgrade head
 
 dev:
 	. .venv/bin/activate && uvicorn keel.main:app --reload --app-dir src
