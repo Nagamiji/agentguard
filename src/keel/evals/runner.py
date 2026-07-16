@@ -68,9 +68,18 @@ class ScriptedRunner:
 
 
 def get_runner(name: str) -> AgentRunner:
+    """Resolve a runner by name.
+
+    Unknown names raise rather than defaulting to `scripted`: a silent fallback to the test
+    double would let a run report a verdict about a model nobody consulted.
+    """
     if name == "scripted":
         return ScriptedRunner()
-    # LiteLLMRunner (EVAL-02) registers here. Until then, be explicit rather than silently
-    # falling back to the scripted double — a gate that quietly evaluates a fiction is worse
-    # than one that refuses to run.
-    raise RunnerError(f"unknown runner '{name}' (available: scripted)")
+    if name == "vertex":
+        # Imported lazily so that the scripted path — and every unit test — needs neither
+        # google-auth nor network access.
+        from keel.evals.live import LiveAgentRunner
+        from keel.evals.providers import get_provider
+
+        return LiveAgentRunner(get_provider("vertex"))
+    raise RunnerError(f"unknown runner '{name}' (available: scripted, vertex)")

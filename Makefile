@@ -1,4 +1,4 @@
-.PHONY: help install hooks up down migrate dev worker test lint typecheck check fmt protect usage
+.PHONY: help install hooks up down migrate dev worker test lint typecheck check fmt protect usage eval-live
 
 help:
 	@echo "install   - create venv + install dev deps"
@@ -13,6 +13,7 @@ help:
 	@echo "check     - lint + typecheck + test (what CI runs)"
 	@echo "protect   - apply GitHub branch protection to main (needs gh admin auth)"
 	@echo "usage     - record today's token usage to reports/usage/ (NOTE=\"...\")"
+	@echo "eval-live - run the REAL Vertex evaluation (costs money; needs gcloud ADC)"
 
 install:
 	python3 -m venv .venv && . .venv/bin/activate && pip install -U pip && pip install -e ".[dev]"
@@ -52,3 +53,10 @@ protect:
 # usage NOTE="what this cycle was about"
 usage:
 	bash scripts/record-usage.sh "$(NOTE)"
+
+# Real model evaluation against Vertex AI. Costs money, needs ADC, non-deterministic —
+# which is why it is a separate target and never part of `make check` or CI.
+#   gcloud auth application-default login
+#   make eval-live
+eval-live:
+	. .venv/bin/activate && RUN_VERTEX_EVAL=true pytest tests/test_vertex_live.py -q -s

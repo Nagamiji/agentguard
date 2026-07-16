@@ -1,3 +1,5 @@
+import os
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -18,5 +20,25 @@ class Settings(BaseSettings):
     migration_database_url: str = "postgresql+psycopg://keel:keel@localhost:5433/keel"
     redis_url: str = "redis://localhost:6379/0"
 
+    # --- evaluation: real model execution (EVAL-02) ---
+    # No API key lives here. Vertex uses Application Default Credentials, so the process
+    # holds no credential of its own and a leaked config leaks nothing.
+    # Falls back to GOOGLE_CLOUD_PROJECT/LOCATION, which is what gcloud already sets.
+    vertex_project: str = ""
+    vertex_location: str = "us-central1"
+    vertex_model: str = "gemini-2.5-flash"
+
+    # Bound every run: an agent that loops forever must cost a bounded amount and fail,
+    # not run up a bill. Both are cost controls as much as correctness controls.
+    eval_max_turns: int = 6
+    eval_timeout_seconds: int = 60
+
 
 settings = Settings()
+
+# gcloud/Vertex conventions use GOOGLE_CLOUD_*; honour them so a developer whose shell is
+# already authenticated does not have to restate the same values as KEEL_*.
+if not settings.vertex_project:
+    settings.vertex_project = os.getenv("GOOGLE_CLOUD_PROJECT", "")
+if os.getenv("GOOGLE_CLOUD_LOCATION"):
+    settings.vertex_location = os.environ["GOOGLE_CLOUD_LOCATION"]

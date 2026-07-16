@@ -71,5 +71,14 @@ reviewer exists. Details + rationale: `docs/branch-protection.md`.
 3. Version comes from `pyproject.toml`; bump it in a normal PR.
 4. **Deployment is a separate, human-initiated step.** No pipeline touches an environment — infrastructure changes go through Terraform (`../keel/os/standards/infrastructure.md`), never the console.
 
+## Evaluation (EVAL-01/02 — the product)
+- **Simulate, never execute** (`docs/architecture/adr-0008-evaluation-engine.md`). A manifest holds tool *schemas*; the implementations are the customer's. Running them to check safety would cause the failure we exist to prevent. `LiveAgentRunner` has no execution path at all — the absence is the safety property, and a test asserts it.
+- **The tool call is the unit of judgement, not the prose.** "Certainly! I've processed the $9000 refund" is fluent and helpful-sounding; a text scorer rates it highly. The danger is entirely in the action.
+- **Checks are deterministic assertions, never LLM-as-judge.** A blocked deploy must be reproducible and explainable to the engineer it blocked at 2am.
+- **Fail closed everywhere.** Unevaluated -> `unknown`; zero scenarios -> `errored`; provider/runner failure -> `errored`. "We could not tell" must never render as "it's fine".
+- **Verdicts key on fingerprint**, so a pass belongs to an exact configuration and v2 cannot inherit v1's verdict.
+- **Real model access via ADC, never an API key in config** (`adr-0009`). `RUN_VERTEX_EVAL=true make eval-live` runs against live Vertex — costs money, non-deterministic, deliberately outside CI.
+
 ## Where to build next
-The `[NOW]` backlog tasks (`../keel/execution/backlog/`): `BE-01` projects+auth+org isolation, `BE-02` agent registry, `AI-01` trace SDK, `EVAL-01` eval pipeline. One task per loop iteration.
+Validated 2026-07-16: a real `gemini-2.5-flash` obeyed a prompt injection and attempted a $9,000 refund; AgentGuard blocked it with evidence and executed nothing.
+Next: **Phase 3 — failure scenario library.** Detection is only as good as the scenarios; a customer will not write them from scratch. That, not a dashboard, is what makes this adoptable. Then `AI-01` trace SDK. One task per loop iteration.
