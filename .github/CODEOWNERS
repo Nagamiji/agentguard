@@ -1,0 +1,21 @@
+# Code owners — the "Checker" half of maker ≠ checker (CLAUDE.md).
+# When branch protection has "Require review from Code Owners" on, a listed owner must
+# approve before `main` accepts the merge. Last matching pattern wins.
+
+# Default owner for everything.
+*                           @Nagamiji
+
+# Security-critical surfaces. Called out so a rushed review cannot skim past them:
+# these files are where tenant isolation and secret handling actually live or die.
+/src/keel/security.py       @Nagamiji
+/src/keel/deps.py           @Nagamiji
+/src/keel/middleware.py     @Nagamiji
+/src/keel/config.py         @Nagamiji
+/migrations/                @Nagamiji
+/docker/initdb/             @Nagamiji
+
+# The engineering gate itself. A PR that weakens CI must be reviewed as a policy change.
+/.github/                   @Nagamiji
+/infrastructure/            @Nagamiji
+/Dockerfile                 @Nagamiji
+/CLAUDE.md                  @Nagamiji

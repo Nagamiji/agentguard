@@ -1,8 +1,10 @@
 """Integration tests: tenant isolation is enforced by Postgres RLS, not app code.
 
-Requires a migrated database (`make up && make migrate`). Skipped otherwise.
+Requires a migrated database (`make up && make migrate`). Skipped locally when there is
+no database; in CI (KEEL_REQUIRE_DB=1) a missing database is a failure, not a skip.
 """
 
+import os
 import uuid
 
 import pytest
@@ -11,7 +13,10 @@ from fastapi.testclient import TestClient
 from keel.db import check_db
 from keel.main import app
 
-pytestmark = pytest.mark.skipif(not check_db(), reason="Postgres not available")
+# CI sets KEEL_REQUIRE_DB=1: a missing database there means the service container
+# broke, and skipping would turn the tenant-isolation guarantee into a silent pass.
+_require_db = os.getenv("KEEL_REQUIRE_DB") == "1"
+pytestmark = pytest.mark.skipif(not _require_db and not check_db(), reason="Postgres not available")
 
 client = TestClient(app)
 

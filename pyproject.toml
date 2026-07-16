@@ -22,8 +22,12 @@ dependencies = [
 dev = [
     "pytest>=8.0",
     "httpx>=0.27",
-    "ruff>=0.6",
-    "mypy>=1.11",
+    # Upper bounds are deliberate. Linters and type checkers gain new rules in minor
+    # releases, so an unbounded range lets a tool release turn `main` red with no code
+    # change — which is exactly what happened (mypy's str-unpack check). CI must fail
+    # because of our commits, not their release schedule. Bump these in their own PR.
+    "ruff>=0.6,<0.13",
+    "mypy>=1.11,<1.19",
 ]
 
 [tool.setuptools]

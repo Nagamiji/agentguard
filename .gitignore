@@ -21,6 +21,8 @@ venv/
 *.tfstate.*
 *.tfvars
 !*.tfvars.example
+# .terraform.lock.hcl IS committed on purpose: it pins provider versions+hashes so CI and
+# every dev resolve the same providers. Regenerate with `terraform providers lock`.
 
 # Graphify (generated knowledge-graph index)
 graphify-out/

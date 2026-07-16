@@ -1,0 +1,8 @@
+# Issues here track work on THIS repo's code. Company-level planning lives in the OS repo.
+blank_issues_enabled: false
+contact_links:
+  - name: Backlog task / roadmap / architecture decision
+    url: https://github.com/Nagamiji/agentguard
+    about: >-
+      Vision, the 90-day plan, backlog tasks and TDRs live in the Keel OS repo (../keel),
+      not here. Open those there; open code defects and platform tasks here.

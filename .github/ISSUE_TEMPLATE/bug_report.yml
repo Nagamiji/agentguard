@@ -1,0 +1,61 @@
+name: Bug report
+description: Something in the platform behaves incorrectly.
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: Actual behaviour, including the request-id if you have one.
+      placeholder: POST /v1/projects returned 500; request-id 01J...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction steps
+      description: Smallest sequence that triggers it.
+      placeholder: |
+        1. make up && make migrate
+        2. curl -X POST ...
+        3. observe ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: isolation
+    attributes:
+      label: Does this involve tenant isolation or secrets?
+      description: >-
+        Cross-tenant data exposure and leaked credentials are day-one guarantees —
+        they jump the queue. If unsure, pick "Not sure".
+      options:
+        - "No"
+        - "Yes — data from one org was visible to another"
+        - "Yes — a secret or key was exposed"
+        - "Not sure"
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: local (make up) / CI / deployed; commit sha; Python version
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or traceback
+      description: Redact secrets before pasting. This will be rendered as code.
+      render: shell
