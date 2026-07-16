@@ -195,6 +195,9 @@ class EvalScenario(Base):
     input: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     checks: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False)
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # 'custom' (the customer wrote it) or 'library' (seeded from the built-in corpus).
+    source: Mapped[str] = mapped_column(String(20), nullable=False, default="custom")
+    library_version: Mapped[str | None] = mapped_column(String(20), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utcnow, nullable=False
     )

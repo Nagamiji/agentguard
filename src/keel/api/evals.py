@@ -8,14 +8,21 @@ from sqlalchemy import select
 from keel.deps import CurrentOrg, DbSession
 from keel.evals.checks import CheckError, validate_checks
 from keel.evals.engine import GateDecision, RunStatus, decide, run_scenario
+from keel.evals.library import LIBRARY_VERSION, all_scenarios, concrete_input, scenarios_for
+from keel.evals.risk import ResultView, classify
 from keel.evals.runner import RunnerError, get_runner
 from keel.models import Agent, AgentVersion, EvalResult, EvalRun, EvalScenario
 from keel.schemas import (
+    CategoryRiskOut,
     EvalResultOut,
     EvalRunCreate,
     EvalRunDetail,
     EvalRunOut,
     GateOut,
+    ImportResult,
+    LibraryOut,
+    LibraryScenarioOut,
+    RiskReport,
     ScenarioCreate,
     ScenarioOut,
 )
@@ -64,10 +71,11 @@ def create_scenario(
         slug=slug,
         name=payload.name,
         description=payload.description,
-        category=payload.category,
+        category=str(payload.category),
         input=payload.input,
         checks=payload.checks,
         enabled=payload.enabled,
+        source="custom",
     )
     db.add(scenario)
     db.commit()
@@ -303,4 +311,161 @@ def gate(
         run_id=run.id,
         evaluated_at=run.created_at,
         failures=failures,
+    )
+
+
+# --- the failure scenario library (Phase 3) ---------------------------------------------
+
+
+@router.get("/library", response_model=LibraryOut)
+def get_library(org_id: CurrentOrg) -> LibraryOut:
+    """Browse the built-in attack corpus. Static content — the moat, made inspectable."""
+    scenarios = all_scenarios()
+    return LibraryOut(
+        version=LIBRARY_VERSION,
+        count=len(scenarios),
+        scenarios=[
+            LibraryScenarioOut(
+                key=s.key,
+                category=str(s.category),
+                severity=str(s.severity),
+                title=s.title,
+                description=s.description,
+                attack=s.attack,
+                requires_tools=s.requires_tools,
+            )
+            for s in scenarios
+        ],
+    )
+
+
+@router.post(
+    "/agents/{agent_id}/scenarios/import",
+    response_model=ImportResult,
+    status_code=status.HTTP_201_CREATED,
+)
+def import_library(agent_id: uuid.UUID, org_id: CurrentOrg, db: DbSession) -> ImportResult:
+    """Seed an agent with the built-in library.
+
+    Idempotent by slug (= library key): re-importing skips what is already present rather
+    than duplicating, so a customer can pull in new attacks as the corpus grows without
+    losing edits to the ones they already have.
+    """
+    agent = _get_agent(agent_id, db)
+
+    # Tool-requiring probes need the agent's declared tool names. Take them from the latest
+    # version; an agent with no version yet simply gets the universal probes.
+    latest = db.execute(
+        select(AgentVersion)
+        .where(AgentVersion.agent_id == agent.id)
+        .order_by(AgentVersion.sequence_number.desc())
+        .limit(1)
+    ).scalar_one_or_none()
+    tool_names: list[str] = []
+    if latest is not None:
+        for tool in latest.manifest.get("tools") or []:
+            if isinstance(tool, dict) and isinstance(tool.get("name"), str):
+                tool_names.append(tool["name"])
+
+    existing = set(
+        db.execute(select(EvalScenario.slug).where(EvalScenario.agent_id == agent.id))
+        .scalars()
+        .all()
+    )
+
+    created: list[EvalScenario] = []
+    skipped = 0
+    for lib in scenarios_for(tool_names):
+        if lib.key in existing:
+            skipped += 1
+            continue
+        scenario = EvalScenario(
+            organization_id=org_id,
+            agent_id=agent.id,
+            slug=lib.key,
+            name=lib.title,
+            description=lib.description,
+            category=str(lib.category),
+            input=concrete_input(lib, tool_names),
+            checks=lib.checks,
+            enabled=True,
+            source="library",
+            library_version=LIBRARY_VERSION,
+        )
+        db.add(scenario)
+        created.append(scenario)
+
+    db.commit()
+    # Built from held objects, not re-queried: the tenant GUC is transaction-local and the
+    # commit above discarded it (see create_run for the full note).
+    return ImportResult(
+        library_version=LIBRARY_VERSION,
+        imported=len(created),
+        skipped=skipped,
+        scenarios=[ScenarioOut.model_validate(s) for s in created],
+    )
+
+
+@router.get("/agents/{agent_id}/risk", response_model=RiskReport)
+def risk_report(
+    agent_id: uuid.UUID,
+    org_id: CurrentOrg,
+    db: DbSession,
+    fingerprint: str = Query(description="The exact configuration whose risk you want."),
+) -> RiskReport:
+    """The aggregated verdict across the most recent scan of this configuration.
+
+    Fails closed like the gate: a configuration that was never scanned is `unknown`, never a
+    clean bill of health.
+    """
+    agent = _get_agent(agent_id, db)
+
+    run = db.execute(
+        select(EvalRun)
+        .where(EvalRun.agent_id == agent.id, EvalRun.fingerprint == fingerprint)
+        .order_by(EvalRun.created_at.desc())
+        .limit(1)
+    ).scalar_one_or_none()
+
+    if run is None:
+        return RiskReport(
+            decision="unknown",
+            risk_level="unknown",
+            reason="This configuration has never been evaluated. Run a scan before deploying it.",
+            fingerprint=fingerprint,
+        )
+
+    # Join results to their scenario's category. Both tables are RLS-scoped and this GET has
+    # not committed, so the tenant GUC is still set — the query is correctly tenant-bound.
+    rows = db.execute(
+        select(EvalResult, EvalScenario.category)
+        .join(EvalScenario, EvalScenario.id == EvalResult.scenario_id)
+        .where(EvalResult.run_id == run.id)
+    ).all()
+
+    views = [
+        ResultView(
+            category=category,
+            passed=result.passed,
+            failures=result.failures or [],
+            errored=bool(result.error),
+        )
+        for result, category in rows
+    ]
+    summary = classify(views)
+
+    return RiskReport(
+        decision=summary.decision,
+        risk_level=summary.risk_level,
+        reason=summary.reason,
+        fingerprint=fingerprint,
+        run_id=run.id,
+        evaluated_at=run.created_at,
+        categories=[
+            CategoryRiskOut(
+                category=c.category, tested=c.tested, failed=c.failed, max_severity=c.max_severity
+            )
+            for c in summary.categories
+        ],
+        findings=summary.findings,
     )
