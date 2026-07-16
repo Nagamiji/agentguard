@@ -2,11 +2,34 @@
 
 How `main` is protected, why each setting is what it is, and how to change it.
 
-Apply or re-apply it with:
+> ## ⚠️ Status: NOT ENFORCED (2026-07-16)
+>
+> `make protect` currently fails with **HTTP 403 — "Upgrade to GitHub Pro or make this
+> repository public"**. GitHub restricts protected branches *and* rulesets to paid plans
+> for **private** repositories, and `Nagamiji/agentguard` is private on the free plan.
+> This is a plan limit, not a misconfiguration.
+>
+> **What this means right now:** CI runs on every PR and reports pass/fail, but **nothing
+> stops a merge or a direct push to `main`.** The gate is *advisory*. A green ✅ is
+> information, not enforcement — the discipline is currently in the humans, not the
+> platform.
+>
+> **To make it real, pick one:**
+>
+> | Option | Cost | Trade-off |
+> |---|---|---|
+> | GitHub Pro | ~$4/month | Repo stays private; everything below starts working. Re-run `make protect`. |
+> | Make repo public | free | Protection works immediately, but the code is world-readable — this is the product. |
+> | Stay as-is | free | Gate stays advisory. Acceptable only while a single disciplined maintainer is the only committer. |
+>
+> What *is* enforced today (these are free): squash-merge only, merge commits and rebase
+> merges disabled, auto-merge disabled, branches deleted on merge.
+
+Apply or re-apply protection with:
 
 ```bash
 gh auth login                              # once; needs admin on the repo
-bash scripts/apply-branch-protection.sh
+make protect                               # → scripts/apply-branch-protection.sh
 ```
 
 ## What "auto merge" does and does not mean here

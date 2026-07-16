@@ -40,7 +40,12 @@ Ship toward the one goal: *a developer can connect an agent → run reliability 
 - Locally, `make check` runs the same lint/typecheck/test trio the gate does.
 
 ## Merge requirements
-A PR merges only when **all** hold:
+> **⚠️ Not yet enforced.** Branch protection needs GitHub Pro on a private repo (403 as of
+> 2026-07-16), so CI **reports** but cannot **block**. Direct pushes to `main` are still
+> possible. Treat the rules below as binding on yourself until the platform enforces them —
+> and don't read a green check as a locked door. See `docs/branch-protection.md`.
+
+Once protection is live, a PR merges only when **all** hold:
 1. `gate` is green.
 2. The branch is up to date with `main` (strict mode).
 3. One approving review — from a code owner for security-critical paths (`.github/CODEOWNERS`).

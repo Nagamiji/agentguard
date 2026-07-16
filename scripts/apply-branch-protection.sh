@@ -28,6 +28,32 @@ gh auth status >/dev/null 2>&1 || { echo "error: run 'gh auth login' first"; exi
 
 echo "Applying protection to ${REPO}:${BRANCH} (enforce_admins=${ENFORCE_ADMINS})"
 
+# GitHub gates branch protection AND rulesets behind a paid plan for PRIVATE repos.
+# Fail with the actual remedy rather than a raw 403 the reader has to decode.
+#
+# Capture the probe's output instead of piping it to grep: `pipefail` is set, so a
+# `gh ... | grep` pipeline reports gh's own 403 exit status even when grep matches,
+# and the check would silently never fire.
+probe="$(gh api "repos/${REPO}/branches/${BRANCH}/protection" 2>&1 || true)"
+if [[ "$probe" == *"Upgrade to GitHub Pro"* ]]; then
+    cat >&2 <<EOF
+
+✖ Branch protection is unavailable: ${REPO} is PRIVATE on a free plan.
+  GitHub restricts protected branches and rulesets to Pro/Team/Enterprise for
+  private repos. This is a plan limit, not a config error.
+
+  Options:
+    1. GitHub Pro (~\$4/mo)  — keeps the repo private, protection works. Then re-run.
+    2. Make the repo public — protection is free, but the code becomes world-readable.
+    3. Stay as-is           — CI still RUNS on every PR and reports pass/fail; it just
+                              cannot BLOCK a merge. The gate is advisory until this is
+                              resolved. Do not mistake a green check for enforcement.
+
+  See docs/branch-protection.md.
+EOF
+  exit 2
+fi
+
 gh api -X PUT "repos/${REPO}/branches/${BRANCH}/protection" \
   -H "Accept: application/vnd.github+json" \
   --input - <<JSON
