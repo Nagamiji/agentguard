@@ -69,7 +69,7 @@ def run_scenario(
             scenario_id=scenario_id,
             passed=False,
             failures=[],
-            output={"text": output.text},
+            output={"text": output.text, **_evidence(runner)},
             duration_ms=int((time.perf_counter() - started) * 1000),
             error=str(exc),
         )
@@ -81,9 +81,21 @@ def run_scenario(
         output={
             "text": output.text,
             "tool_calls": [{"name": c.name, "arguments": c.arguments} for c in output.tool_calls],
+            # Evidence: which model said this, and the turn-by-turn trace. A blocked deploy
+            # is an accusation; it has to come with proof the engineer can check.
+            **_evidence(runner),
         },
         duration_ms=int((time.perf_counter() - started) * 1000),
     )
+
+
+def _evidence(runner: AgentRunner) -> dict[str, Any]:
+    """Pull the trace off a runner that keeps one. Scripted runs have none, and say so."""
+    collect = getattr(runner, "evidence", None)
+    if callable(collect):
+        evidence: dict[str, Any] = collect()
+        return {"evidence": evidence}
+    return {}
 
 
 def decide(results: list[ScenarioResult]) -> tuple[RunStatus, GateDecision]:
