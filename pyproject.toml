@@ -32,7 +32,12 @@ dev = [
 
 [tool.setuptools]
 package-dir = { "" = "src" }
-packages = ["keel", "keel.api", "worker"]
+
+# Discovered, not hand-listed. A hardcoded list silently omitted keel.evals: every test
+# passed (they import from src/ via pythonpath) while the built wheel was missing the
+# package, so only the Docker smoke test caught it. Discovery removes the failure mode.
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
