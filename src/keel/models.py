@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     DateTime,
     ForeignKey,
@@ -161,6 +162,118 @@ class AgentAlias(Base):
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utcnow, onupdate=_utcnow, nullable=False
+    )
+
+
+class EvalScenario(Base):
+    """A test case: an input, plus the checks that must hold over what the agent does.
+
+    `input` carries the scenario's simulated world — the user message and any canned tool
+    results. The agent's real tools are never invoked (ADR 0008).
+    """
+
+    __tablename__ = "eval_scenarios"
+    __table_args__ = (UniqueConstraint("agent_id", "slug", name="uq_eval_scenarios_agent_slug"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    organization_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    agent_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("agents.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    slug: Mapped[str] = mapped_column(String(200), nullable=False)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    category: Mapped[str] = mapped_column(String(30), nullable=False)
+    input: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    checks: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, onupdate=_utcnow, nullable=False
+    )
+
+
+class EvalRun(Base):
+    """One evaluation of one agent version against a set of scenarios.
+
+    `fingerprint` is denormalised from the version on purpose: a run is a claim about an
+    exact configuration, and the gate looks a verdict up BY fingerprint. Storing it here
+    means the claim survives independently of how the version row is later traversed.
+    """
+
+    __tablename__ = "eval_runs"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    organization_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    agent_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("agents.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    version_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("agent_versions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    fingerprint: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    runner: Mapped[str] = mapped_column(String(30), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    gate_decision: Mapped[str] = mapped_column(String(20), nullable=False)
+    total_scenarios: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    failed_scenarios: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, nullable=False
+    )
+
+
+class EvalResult(Base):
+    """The outcome of one scenario within one run, with the failures that caused it."""
+
+    __tablename__ = "eval_results"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    organization_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    run_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("eval_runs.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    scenario_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("eval_scenarios.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    passed: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    failures: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False, default=list)
+    output: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    duration_ms: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, nullable=False
     )
 
 

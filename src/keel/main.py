@@ -3,6 +3,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from keel import __version__
 from keel.api.agents import router as agents_router
+from keel.api.evals import router as evals_router
 from keel.api.health import router as health_router
 from keel.api.orgs import router as orgs_router
 from keel.api.projects import router as projects_router
@@ -22,6 +23,7 @@ def create_app() -> FastAPI:
     app.include_router(orgs_router)
     app.include_router(projects_router)
     app.include_router(agents_router)
+    app.include_router(evals_router)
     return app
 
 
