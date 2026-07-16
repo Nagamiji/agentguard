@@ -1,11 +1,73 @@
+# PR gate. Every job here must pass before `main` will accept a merge.
+# Branch protection requires exactly ONE check — `gate` — which fans in on the rest,
+# so adding a job below never means re-editing the protection settings.
+# Docs: docs/branch-protection.md
 name: CI
+
 on:
+  pull_request:
   push:
     branches: [main]
-  pull_request:
+
+# A new push to a PR makes the in-flight run irrelevant; don't pay for it.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.12"
 
 jobs:
-  build:
+  lint:
+    name: Lint (ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - run: pip install -e ".[dev]"
+      - name: ruff check
+        run: ruff check src tests
+      - name: ruff format --check
+        run: ruff format --check src tests
+
+  typecheck:
+    name: Typecheck (mypy --strict)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - run: pip install -e ".[dev]"
+      - name: mypy --strict
+        run: mypy --strict src
+
+  unit:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - run: pip install -e ".[dev]"
+      # No database here — exercising the DB is the integration job's contract.
+      - name: pytest (no DB)
+        run: pytest --ignore=tests/test_isolation.py
+
+  integration:
+    name: Integration tests (Postgres)
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -22,39 +84,123 @@ jobs:
       # App = least-privilege role (superusers bypass RLS); migrations = owner.
       KEEL_DATABASE_URL: postgresql+psycopg://keel_app:keel_app@localhost:5432/keel
       KEEL_MIGRATION_DATABASE_URL: postgresql+psycopg://keel:keel@localhost:5432/keel
+      # Turns "Postgres missing" from a skip into a failure (tests/test_isolation.py).
+      KEEL_REQUIRE_DB: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-      - name: Install
-        run: |
-          python -m pip install -U pip
-          pip install -e ".[dev]"
-      - name: Lint (ruff)
-        run: ruff check src tests
-      - name: Typecheck (mypy)
-        run: mypy src
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - run: pip install -e ".[dev]"
       - name: Create least-privilege app role
         # Mirrors docker/initdb/01-app-role.sql (GH service containers can't mount initdb).
-        run: PGPASSWORD=keel psql -h localhost -U keel -d keel -c "CREATE ROLE keel_app LOGIN PASSWORD 'keel_app'; GRANT USAGE ON SCHEMA public TO keel_app;"
-
+        run: |
+          PGPASSWORD=keel psql -h localhost -U keel -d keel \
+            -c "CREATE ROLE keel_app LOGIN PASSWORD 'keel_app';" \
+            -c "GRANT USAGE ON SCHEMA public TO keel_app;"
       - name: Migrate
         run: alembic upgrade head
-      - name: Test (pytest — includes RLS tenant-isolation integration tests)
-        run: pytest
+      - name: pytest (RLS tenant-isolation suite)
+        run: pytest -rs
 
-  secret-scan:
+  security:
+    name: Security (secrets + deps)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
+          # Gitleaks scans history, not just the tip commit.
           fetch-depth: 0
-      - name: Gitleaks
+      - name: Gitleaks (secret scanning)
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Dependency vulnerability scan (pip-audit)
+        # --skip-editable: keel-platform is not on PyPI, so auditing it is meaningless.
+        # No --strict: it escalates "couldn't audit this package" into a failure, which
+        # our own unpublished package trips every run. Verified locally that this still
+        # exits non-zero on a real CVE — the part that matters.
+        run: |
+          pip install -e "." pip-audit
+          pip-audit --progress-spinner=off --skip-editable
 
-  # [SEED+] terraform job activates when infrastructure/terraform has live .tf:
-  # fmt -> validate -> tfsec/checkov -> plan (comment) -> human approval -> apply.
-  # Kept disabled until PLAT-01 lands to avoid failing on an empty module.
+  docker:
+    name: Docker build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: keel-platform:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Smoke test the image
+        # A build producing an image that cannot import the app is still a red build.
+        run: docker run --rm keel-platform:ci python -c "import keel.main; print('app imports OK')"
+
+  terraform:
+    name: Terraform (fmt + validate)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infrastructure/terraform
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+      - name: terraform fmt -check
+        run: terraform fmt -check -recursive
+      - name: terraform init (no backend)
+        # -backend=false: validation needs providers, never real state or credentials.
+        run: terraform init -backend=false -input=false
+      - name: terraform validate
+        run: terraform validate
+
+  commit-style:
+    name: Conventional commits
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Validate PR title and commit subjects
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: bash .github/scripts/check-conventional-commits.sh
+
+  # The single required status check. Branch protection points at this job only.
+  gate:
+    name: gate
+    runs-on: ubuntu-latest
+    needs: [lint, typecheck, unit, integration, security, docker, terraform, commit-style]
+    # Without always(), a failed dependency SKIPS this job, and a skipped required check
+    # reads as pending to branch protection — a gate that never actually blocks.
+    if: always()
+    steps:
+      - name: Verify every gate passed
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "upstream results: $RESULTS"
+          for r in $RESULTS; do
+            # 'skipped' is legitimate only for commit-style on push-to-main.
+            if [ "$r" != "success" ] && [ "$r" != "skipped" ]; then
+              echo "::error::a required check did not pass ($r)"
+              exit 1
+            fi
+          done
+          echo "all required checks passed"

@@ -1,0 +1,56 @@
+# Scheduled security scans. The PR gate proves code was clean WHEN MERGED; this proves
+# it is still clean today — new CVEs land against dependencies that never changed.
+name: Security
+
+on:
+  schedule:
+    # 06:00 UTC Monday — findings are waiting at the start of the week.
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  secrets:
+    name: Secret detection (full history)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  dependencies:
+    name: Dependency vulnerabilities
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: pip-audit
+        # See ci.yml for why --skip-editable and no --strict.
+        run: |
+          pip install -e "." pip-audit
+          pip-audit --progress-spinner=off --skip-editable
+
+  image:
+    name: Container image scan (Trivy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t keel-platform:scan .
+      - name: Trivy
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          image-ref: keel-platform:scan
+          format: table
+          # Base-image CVEs are usually unfixable on our side; fail only on actionable ones.
+          ignore-unfixed: true
+          severity: HIGH,CRITICAL
+          exit-code: "1"

@@ -5,6 +5,7 @@ import signal
 import sys
 import time
 from types import FrameType
+from typing import cast
 
 import redis
 
@@ -12,6 +13,11 @@ from keel.config import settings
 from keel.logging import configure_logging
 
 logger = logging.getLogger("worker")
+
+# redis-py types xreadgroup's return as a broad union (the shape depends on the RESP
+# protocol and on decode_responses), which mypy cannot narrow. With decode_responses=True
+# the wire shape is fixed: [(stream, [(message_id, fields), ...]), ...].
+StreamBatch = list[tuple[str, list[tuple[str, dict[str, str]]]]]
 
 STREAM = "keel:runs"
 GROUP = "keel-workers"
@@ -47,7 +53,10 @@ def main() -> int:
     logger.info("worker started", extra={"message_id": STREAM})
     while _running:
         try:
-            resp = client.xreadgroup(GROUP, CONSUMER, {STREAM: ">"}, count=10, block=2000)
+            resp = cast(
+                "StreamBatch | None",
+                client.xreadgroup(GROUP, CONSUMER, {STREAM: ">"}, count=10, block=2000),
+            )
         except redis.RedisError:
             logger.exception("redis read failed; backing off")
             time.sleep(1)

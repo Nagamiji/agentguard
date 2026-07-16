@@ -1,4 +1,15 @@
+# Install with: make hooks   (needs the commit-msg stage, not just pre-commit)
+default_install_hook_types: [pre-commit, commit-msg]
+
 repos:
+  - repo: local
+    hooks:
+      - id: conventional-commit
+        name: Conventional Commit message
+        entry: .github/scripts/check-commit-msg.sh
+        language: script
+        stages: [commit-msg]
+
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.6.9
     hooks:

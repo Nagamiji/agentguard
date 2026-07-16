@@ -1,0 +1,55 @@
+name: Platform task
+description: A unit of build work in this repo (usually one backlog task, one loop iteration).
+labels: ["task"]
+body:
+  - type: input
+    id: backlog-id
+    attributes:
+      label: Backlog ID
+      description: The task in ../keel/execution/backlog/ this implements.
+      placeholder: BE-02
+    validations:
+      required: true
+
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Outcome
+      description: What is true when this is done, in terms a user would notice.
+    validations:
+      required: true
+
+  - type: textarea
+    id: prime-directive
+    attributes:
+      label: Prime-directive fit
+      description: >-
+        How this advances: connect an agent → run reliability tests in CI → get a failure
+        report → block the deploy. If it does not, say why it is still worth doing now.
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      placeholder: |
+        - [ ] ...
+        - [ ] tests cover ...
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: day-one
+    attributes:
+      label: Day-one guarantees touched
+      description: Tick what this task must not regress.
+      options:
+        - label: Tenant isolation (RLS on new tables, org-scoped queries)
+        - label: Reproducibility (migrations, pinned deps, IaC)
+        - label: Secret handling (KEEL_* env vars, nothing committed)
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes / open questions
