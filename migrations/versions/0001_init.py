@@ -57,8 +57,10 @@ def upgrade() -> None:
 
     for table in TENANT_TABLES:
         op.execute(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY")
-        # FORCE is essential: without it Postgres exempts the table OWNER from RLS,
-        # and our app connects as the owner — the policy would silently never apply.
+        # FORCE makes Postgres apply RLS to the table OWNER too, which it otherwise
+        # exempts. The app connects as keel_app (not the owner, not a superuser), so this
+        # is defence in depth rather than the thing standing between us and a leak — but
+        # it keeps the policy true if ownership ever changes.
         op.execute(f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY")
         # current_setting(..., true) returns NULL when unset -> comparison is NULL
         # -> zero rows. Fail-closed by construction: no tenant context, no data.

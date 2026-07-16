@@ -80,3 +80,208 @@ def test_cannot_revoke_another_orgs_key() -> None:
 
     resp = client.delete(f"/v1/orgs/keys/{victim_id}", headers=_auth(key_a))
     assert resp.status_code == 404  # not found *for this tenant*
+
+
+# --- BE-02: the registry's three tables each need their own proof ------------------------
+#
+# RLS does not inherit through a foreign key. agent_versions and agent_aliases are children
+# of agents, and a child table without its own policy leaks across tenants even when its
+# parent is protected — so each table is tested separately rather than assumed safe.
+
+_MANIFEST: dict[str, object] = {
+    "prompts": [{"role": "system", "content": "You are a refund agent."}],
+    "model": {"provider": "anthropic", "id": "claude-opus-4-8-20260115"},
+    "params": {"temperature": 0.2},
+}
+
+
+def _make_agent(key: str, name: str) -> str:
+    resp = client.post("/v1/agents", json={"name": name}, headers=_auth(key))
+    assert resp.status_code == 201, resp.text
+    agent_id: str = resp.json()["id"]
+    return agent_id
+
+
+def _make_version(key: str, agent_id: str, manifest: dict[str, object]) -> dict[str, object]:
+    resp = client.post(
+        f"/v1/agents/{agent_id}/versions", json={"manifest": manifest}, headers=_auth(key)
+    )
+    assert resp.status_code == 201, resp.text
+    body: dict[str, object] = resp.json()
+    return body
+
+
+def test_agents_are_isolated_between_tenants_by_rls() -> None:
+    org_a, key_a = _bootstrap("org-a")
+    _org_b, key_b = _bootstrap("org-b")
+
+    _make_agent(key_a, "a-agent")
+    _make_agent(key_b, "b-agent")
+
+    agents = client.get("/v1/agents", headers=_auth(key_a)).json()
+    assert [a["name"] for a in agents] == ["a-agent"]
+    assert {a["organization_id"] for a in agents} == {org_a}
+
+
+def test_agent_versions_are_isolated_between_tenants_by_rls() -> None:
+    _org_a, key_a = _bootstrap("org-a")
+    _org_b, key_b = _bootstrap("org-b")
+
+    agent_a = _make_agent(key_a, "a-agent")
+    agent_b = _make_agent(key_b, "b-agent")
+    _make_version(key_a, agent_a, _MANIFEST)
+    _make_version(key_b, agent_b, _MANIFEST)
+
+    versions = client.get(f"/v1/agents/{agent_a}/versions", headers=_auth(key_a)).json()
+    assert len(versions) == 1
+
+    # B's agent is invisible to A, so the whole path 404s rather than 403s: a 403 would
+    # confirm the agent exists.
+    assert client.get(f"/v1/agents/{agent_b}/versions", headers=_auth(key_a)).status_code == 404
+
+
+def test_cross_tenant_agent_access_is_404_not_403() -> None:
+    _org_a, key_a = _bootstrap("org-a")
+    _org_b, key_b = _bootstrap("org-b")
+    agent_b = _make_agent(key_b, "b-agent")
+
+    assert client.get(f"/v1/agents/{agent_b}", headers=_auth(key_a)).status_code == 404
+    assert (
+        client.patch(
+            f"/v1/agents/{agent_b}", json={"name": "hijacked"}, headers=_auth(key_a)
+        ).status_code
+        == 404
+    )
+    assert client.delete(f"/v1/agents/{agent_b}", headers=_auth(key_a)).status_code == 404
+
+
+def test_alias_cannot_point_at_another_tenants_version() -> None:
+    """The threat the FK alone does not stop.
+
+    A tenant knowing another's version UUID must not be able to point its own alias at it.
+    RLS makes that row invisible, so the lookup fails — but this is the assertion that says
+    so out loud, because the failure would otherwise be silent and cross-tenant.
+    """
+    _org_a, key_a = _bootstrap("org-a")
+    _org_b, key_b = _bootstrap("org-b")
+
+    agent_a = _make_agent(key_a, "a-agent")
+    agent_b = _make_agent(key_b, "b-agent")
+    version_b = _make_version(key_b, agent_b, _MANIFEST)
+
+    resp = client.put(
+        f"/v1/agents/{agent_a}/aliases/production",
+        json={"version_id": version_b["id"]},
+        headers=_auth(key_a),
+    )
+    assert resp.status_code == 404, "a tenant must not alias another tenant's version"
+
+
+def test_aliases_are_isolated_between_tenants_by_rls() -> None:
+    _org_a, key_a = _bootstrap("org-a")
+    _org_b, key_b = _bootstrap("org-b")
+
+    agent_a = _make_agent(key_a, "a-agent")
+    version_a = _make_version(key_a, agent_a, _MANIFEST)
+    assert (
+        client.put(
+            f"/v1/agents/{agent_a}/aliases/production",
+            json={"version_id": version_a["id"]},
+            headers=_auth(key_a),
+        ).status_code
+        == 200
+    )
+
+    resolved = client.get(f"/v1/agents/{agent_a}/aliases/production", headers=_auth(key_a))
+    assert resolved.status_code == 200
+    # Resolution returns the concrete version, fingerprint included — MLflow #8078 is what
+    # happens when a pin silently floats to latest.
+    assert resolved.json()["fingerprint"] == version_a["fingerprint"]
+
+    assert (
+        client.get(f"/v1/agents/{agent_a}/aliases/production", headers=_auth(key_b)).status_code
+        == 404
+    )
+
+
+# --- BE-02: registry behaviour that needs a real database --------------------------------
+
+
+def test_identical_manifest_is_deduped_not_versioned_twice() -> None:
+    """An unchanged config is not a new version (the gap langfuse#2161 asks for)."""
+    _org_a, key_a = _bootstrap("org-a")
+    agent = _make_agent(key_a, "dedup-agent")
+
+    first = _make_version(key_a, agent, _MANIFEST)
+
+    # Same manifest, reformatted: cosmetically different, behaviourally identical.
+    noisy = dict(_MANIFEST)
+    noisy["prompts"] = [{"role": "system", "content": "You are a refund agent.  \n\n"}]
+    resp = client.post(
+        f"/v1/agents/{agent}/versions", json={"manifest": noisy}, headers=_auth(key_a)
+    )
+    assert resp.status_code == 200, "a cosmetically-different manifest must dedupe, not create"
+    assert resp.json()["id"] == first["id"]
+    assert resp.json()["sequence_number"] == 1
+
+    assert len(client.get(f"/v1/agents/{agent}/versions", headers=_auth(key_a)).json()) == 1
+
+
+def test_changed_manifest_creates_a_new_version() -> None:
+    _org_a, key_a = _bootstrap("org-a")
+    agent = _make_agent(key_a, "seq-agent")
+
+    _make_version(key_a, agent, _MANIFEST)
+    changed = dict(_MANIFEST)
+    changed["params"] = {"temperature": 0.9}
+    second = _make_version(key_a, agent, changed)
+
+    assert second["sequence_number"] == 2  # per agent, from 1
+
+
+def test_sequence_numbers_are_per_agent_not_global() -> None:
+    _org_a, key_a = _bootstrap("org-a")
+    agent_one = _make_agent(key_a, "agent-one")
+    agent_two = _make_agent(key_a, "agent-two")
+
+    assert _make_version(key_a, agent_one, _MANIFEST)["sequence_number"] == 1
+    assert _make_version(key_a, agent_two, _MANIFEST)["sequence_number"] == 1
+
+
+def test_manifest_with_a_secret_is_rejected() -> None:
+    _org_a, key_a = _bootstrap("org-a")
+    agent = _make_agent(key_a, "secret-agent")
+
+    leaky = dict(_MANIFEST)
+    leaky["prompts"] = [
+        {"role": "system", "content": "Call the API with sk-ant-api03-AAAAAAAAAAAAAAAAAAAAAA"}
+    ]
+    resp = client.post(
+        f"/v1/agents/{agent}/versions", json={"manifest": leaky}, headers=_auth(key_a)
+    )
+    assert resp.status_code == 400
+    # RFC-9457: an HTTPException's message surfaces as `title` (see keel/errors.py).
+    assert "Anthropic API key" in resp.json()["title"]
+    # The error names the credential type but must never echo the credential itself.
+    assert "sk-ant-api03-AAAAAAAAAAAAAAAAAAAAAA" not in resp.text
+
+
+def test_slug_is_unique_per_tenant_but_not_globally() -> None:
+    _org_a, key_a = _bootstrap("org-a")
+    _org_b, key_b = _bootstrap("org-b")
+
+    assert (
+        client.post("/v1/agents", json={"name": "Shared Name"}, headers=_auth(key_a)).status_code
+        == 201
+    )
+    # Same slug in another tenant must be fine — a global constraint would leak the
+    # existence of other orgs' agents through collisions.
+    assert (
+        client.post("/v1/agents", json={"name": "Shared Name"}, headers=_auth(key_b)).status_code
+        == 201
+    )
+    # ...but a duplicate within one tenant is a conflict.
+    assert (
+        client.post("/v1/agents", json={"name": "Shared Name"}, headers=_auth(key_a)).status_code
+        == 409
+    )

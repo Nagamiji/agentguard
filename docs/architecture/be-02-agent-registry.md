@@ -1,6 +1,6 @@
 # BE-02 — Agent Registry: architecture proposal
 
-**Status:** proposal, awaiting human approval. No implementation yet.
+**Status:** **approved 2026-07-16** — §9 decisions settled, implementation in progress.
 **Date:** 2026-07-16
 **Prime-directive fit:** the registry is what a developer *connects*, and the fingerprint is
 what decides *when to re-run reliability tests*. Both are on the critical path of
@@ -238,17 +238,18 @@ Sequenced so §5.1 lands first: without it every later step fails at runtime.
 
 ---
 
-## 9. Decisions needed from a human
+## 9. Decisions — settled 2026-07-16
 
-1. **Fingerprint scope** (§3) — is `framework` version in-scope? It's defensible either way:
-   in = more spurious re-runs on framework bumps; out = we can miss real orchestration
-   changes. I lean **in**, per "when in doubt, include."
-2. **Secrets in manifests** (§7) — reject on suspicion (false positives block legitimate
-   writes) or accept and document? A fingerprint is a one-way hash of the manifest, so a
-   leaked key cannot be unhashed, but the plaintext `manifest` column would hold it. I lean
-   **reject at write time with a clear error**, plus never logging manifest bodies.
-3. **`sequence_number` per agent or global?** Per agent, matching Langfuse/Phoenix. Cheap to
-   confirm now, painful to change later.
+1. **`framework` + version is IN the fingerprint.** A LangGraph 0.2→0.3 bump can change
+   orchestration semantics, so it is behavior. Accepted cost: framework bumps trigger
+   eval re-runs that may turn out to be no-ops. Consistent with "when in doubt, include" —
+   a spurious re-run costs dollars; a missed one certifies an agent whose behavior changed.
+2. **Reject suspected secrets at write time** (`400`, clear error). False positives block a
+   legitimate write, which is recoverable; the alternative writes a credential into a
+   plaintext column *and* into a one-way hash that can never be redacted. Manifest bodies
+   are never logged.
+3. **`sequence_number` is per agent** (1, 2, 3… within each agent) — matches Langfuse and
+   Phoenix, reads naturally ("agent X v3"), and does not leak how many agents an org has.
 
 ---
 
