@@ -7,6 +7,21 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: keel
+          POSTGRES_PASSWORD: keel
+          POSTGRES_DB: keel
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U keel" --health-interval 5s
+          --health-timeout 3s --health-retries 10
+    env:
+      # App = least-privilege role (superusers bypass RLS); migrations = owner.
+      KEEL_DATABASE_URL: postgresql+psycopg://keel_app:keel_app@localhost:5432/keel
+      KEEL_MIGRATION_DATABASE_URL: postgresql+psycopg://keel:keel@localhost:5432/keel
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -20,7 +35,13 @@ jobs:
         run: ruff check src tests
       - name: Typecheck (mypy)
         run: mypy src
-      - name: Test (pytest)
+      - name: Create least-privilege app role
+        # Mirrors docker/initdb/01-app-role.sql (GH service containers can't mount initdb).
+        run: PGPASSWORD=keel psql -h localhost -U keel -d keel -c "CREATE ROLE keel_app LOGIN PASSWORD 'keel_app'; GRANT USAGE ON SCHEMA public TO keel_app;"
+
+      - name: Migrate
+        run: alembic upgrade head
+      - name: Test (pytest — includes RLS tenant-isolation integration tests)
         run: pytest
 
   secret-scan:

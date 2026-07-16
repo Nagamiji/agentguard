@@ -3,6 +3,8 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from keel import __version__
 from keel.api.health import router as health_router
+from keel.api.orgs import router as orgs_router
+from keel.api.projects import router as projects_router
 from keel.config import settings
 from keel.errors import http_exception_handler, unhandled_exception_handler
 from keel.logging import configure_logging
@@ -16,6 +18,8 @@ def create_app() -> FastAPI:
     app.add_exception_handler(StarletteHTTPException, http_exception_handler)
     app.add_exception_handler(Exception, unhandled_exception_handler)
     app.include_router(health_router)
+    app.include_router(orgs_router)
+    app.include_router(projects_router)
     return app
 
 
