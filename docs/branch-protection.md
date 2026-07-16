@@ -22,8 +22,16 @@ How `main` is protected, why each setting is what it is, and how to change it.
 > | Make repo public | free | Protection works immediately, but the code is world-readable — this is the product. |
 > | Stay as-is | free | Gate stays advisory. Acceptable only while a single disciplined maintainer is the only committer. |
 >
+> **Decision (2026-07-16):** option 3 — the gate stays **advisory** for now.
+>
 > What *is* enforced today (these are free): squash-merge only, merge commits and rebase
 > merges disabled, auto-merge disabled, branches deleted on merge.
+>
+> **Compensating control:** `make hooks` installs a local `pre-push` hook
+> (`.github/scripts/pre-push-guard.sh`) that refuses a direct push to `main`. It is a
+> seatbelt, not a lock — it only exists on machines where `make hooks` ran, and
+> `--no-verify` skips it. It cannot stop a merge through the GitHub web UI. Delete it when
+> real protection is switched on.
 
 Apply or re-apply protection with:
 

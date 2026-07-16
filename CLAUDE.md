@@ -41,9 +41,11 @@ Ship toward the one goal: *a developer can connect an agent → run reliability 
 
 ## Merge requirements
 > **⚠️ Not yet enforced.** Branch protection needs GitHub Pro on a private repo (403 as of
-> 2026-07-16), so CI **reports** but cannot **block**. Direct pushes to `main` are still
-> possible. Treat the rules below as binding on yourself until the platform enforces them —
-> and don't read a green check as a locked door. See `docs/branch-protection.md`.
+> 2026-07-16), so CI **reports** but cannot **block**. Treat the rules below as binding on
+> yourself until the platform enforces them — and don't read a green check as a locked
+> door. `make hooks` installs a local pre-push guard against direct pushes to `main`, but
+> it is bypassable and machine-local, and it cannot stop a web-UI merge.
+> See `docs/branch-protection.md`.
 
 Once protection is live, a PR merges only when **all** hold:
 1. `gate` is green.
