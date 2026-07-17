@@ -1,9 +1,20 @@
+import time
 import uuid
 from collections.abc import Awaitable, Callable
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
+
+from keel.context import (
+    org_id_var,
+    request_id_var,
+    run_id_var,
+    set_org_id,
+    set_request_id,
+    set_run_id,
+)
+from keel.metrics import metrics
 
 
 class ContextMiddleware(BaseHTTPMiddleware):
@@ -22,6 +33,28 @@ class ContextMiddleware(BaseHTTPMiddleware):
     ) -> Response:
         request_id = request.headers.get("X-Request-ID") or uuid.uuid4().hex
         request.state.request_id = request_id
-        response = await call_next(request)
-        response.headers["X-Request-ID"] = request_id
-        return response
+
+        req_token = set_request_id(request_id)
+        org_token = set_org_id(None)
+        run_token = set_run_id(None)
+
+        start_time = time.perf_counter()
+        try:
+            response = await call_next(request)
+            duration = time.perf_counter() - start_time
+            metrics.http_requests_total.inc(
+                labels={
+                    "method": request.method,
+                    "path": request.url.path,
+                    "status": str(response.status_code),
+                }
+            )
+            metrics.http_request_duration_seconds.observe(
+                duration, labels={"method": request.method, "path": request.url.path}
+            )
+            response.headers["X-Request-ID"] = request_id
+            return response
+        finally:
+            request_id_var.reset(req_token)
+            org_id_var.reset(org_token)
+            run_id_var.reset(run_token)

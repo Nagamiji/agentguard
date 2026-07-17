@@ -5,7 +5,7 @@ from fastapi import APIRouter, Response, status
 from fastapi.exceptions import HTTPException
 from sqlalchemy import func, select
 
-from keel.deps import CurrentOrg, DbSession
+from keel.deps import DbSession, ReadOrg, WriteOrg
 from keel.fingerprint import (
     FINGERPRINT_ALGO,
     ManifestError,
@@ -49,7 +49,7 @@ def _get_agent(agent_id: uuid.UUID, db: DbSession) -> Agent:
 
 
 @router.post("/agents", response_model=AgentOut, status_code=status.HTTP_201_CREATED)
-def create_agent(payload: AgentCreate, org_id: CurrentOrg, db: DbSession) -> AgentOut:
+def create_agent(payload: AgentCreate, org_id: WriteOrg, db: DbSession) -> AgentOut:
     slug = payload.slug or _slugify(payload.name)
     existing = db.execute(select(Agent).where(Agent.slug == slug)).scalar_one_or_none()
     if existing is not None:
@@ -70,7 +70,7 @@ def create_agent(payload: AgentCreate, org_id: CurrentOrg, db: DbSession) -> Age
 
 
 @router.get("/agents", response_model=list[AgentOut])
-def list_agents(org_id: CurrentOrg, db: DbSession) -> list[AgentOut]:
+def list_agents(org_id: ReadOrg, db: DbSession) -> list[AgentOut]:
     """List this organization's agents.
 
     As in projects.py, the absence of `.where(Agent.organization_id == org_id)` is
@@ -82,13 +82,13 @@ def list_agents(org_id: CurrentOrg, db: DbSession) -> list[AgentOut]:
 
 
 @router.get("/agents/{agent_id}", response_model=AgentOut)
-def get_agent(agent_id: uuid.UUID, org_id: CurrentOrg, db: DbSession) -> AgentOut:
+def get_agent(agent_id: uuid.UUID, org_id: ReadOrg, db: DbSession) -> AgentOut:
     return AgentOut.model_validate(_get_agent(agent_id, db))
 
 
 @router.patch("/agents/{agent_id}", response_model=AgentOut)
 def update_agent(
-    agent_id: uuid.UUID, payload: AgentUpdate, org_id: CurrentOrg, db: DbSession
+    agent_id: uuid.UUID, payload: AgentUpdate, org_id: WriteOrg, db: DbSession
 ) -> AgentOut:
     """Update cosmetic fields. Never touches version data — versions are immutable."""
     agent = _get_agent(agent_id, db)
@@ -107,7 +107,7 @@ def update_agent(
 
 
 @router.delete("/agents/{agent_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_agent(agent_id: uuid.UUID, org_id: CurrentOrg, db: DbSession) -> Response:
+def delete_agent(agent_id: uuid.UUID, org_id: WriteOrg, db: DbSession) -> Response:
     agent = _get_agent(agent_id, db)
     db.delete(agent)
     db.commit()
@@ -118,7 +118,7 @@ def delete_agent(agent_id: uuid.UUID, org_id: CurrentOrg, db: DbSession) -> Resp
 def create_agent_version(
     agent_id: uuid.UUID,
     payload: AgentVersionCreate,
-    org_id: CurrentOrg,
+    org_id: WriteOrg,
     db: DbSession,
     response: Response,
 ) -> AgentVersionOut:
@@ -174,7 +174,7 @@ def create_agent_version(
 
 @router.get("/agents/{agent_id}/versions", response_model=list[AgentVersionOut])
 def list_agent_versions(
-    agent_id: uuid.UUID, org_id: CurrentOrg, db: DbSession
+    agent_id: uuid.UUID, org_id: ReadOrg, db: DbSession
 ) -> list[AgentVersionOut]:
     agent = _get_agent(agent_id, db)
     rows = (
@@ -191,7 +191,7 @@ def list_agent_versions(
 
 @router.get("/agents/{agent_id}/versions/{fingerprint}", response_model=AgentVersionOut)
 def get_agent_version(
-    agent_id: uuid.UUID, fingerprint: str, org_id: CurrentOrg, db: DbSession
+    agent_id: uuid.UUID, fingerprint: str, org_id: ReadOrg, db: DbSession
 ) -> AgentVersionOut:
     agent = _get_agent(agent_id, db)
     version = db.execute(
@@ -210,7 +210,7 @@ def upsert_alias(
     agent_id: uuid.UUID,
     name: str,
     payload: AliasUpsert,
-    org_id: CurrentOrg,
+    org_id: WriteOrg,
     db: DbSession,
 ) -> AliasOut:
     """Point a named alias at a concrete version."""
@@ -249,7 +249,7 @@ def upsert_alias(
 
 @router.get("/agents/{agent_id}/aliases/{name}", response_model=AgentVersionOut)
 def resolve_alias(
-    agent_id: uuid.UUID, name: str, org_id: CurrentOrg, db: DbSession
+    agent_id: uuid.UUID, name: str, org_id: ReadOrg, db: DbSession
 ) -> AgentVersionOut:
     """Resolve an alias to the concrete version it points at.
 

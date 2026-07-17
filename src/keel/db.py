@@ -1,5 +1,6 @@
 from collections.abc import Iterator
 
+import redis
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
@@ -8,6 +9,7 @@ from keel.config import settings
 
 _engine: Engine | None = None
 _session_factory: sessionmaker[Session] | None = None
+_redis_pool: redis.ConnectionPool | None = None
 
 
 def get_engine() -> Engine:
@@ -34,3 +36,10 @@ def check_db() -> bool:
     except Exception:
         return False
     return True
+
+
+def get_redis_client() -> redis.Redis:
+    global _redis_pool
+    if _redis_pool is None:
+        _redis_pool = redis.ConnectionPool.from_url(settings.redis_url, decode_responses=True)
+    return redis.Redis(connection_pool=_redis_pool)

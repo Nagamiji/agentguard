@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from fastapi import APIRouter, HTTPException, Response, status
 from sqlalchemy import select
 
-from keel.deps import CurrentOrg, DbSession
+from keel.deps import AdminOrg, DbSession
 from keel.models import ApiKey, Organization
 from keel.schemas import (
     ApiKeyCreate,
@@ -35,23 +35,33 @@ def bootstrap_org(payload: OrgCreate, db: DbSession) -> OrgBootstrapOut:
     db.flush()
 
     full_key, prefix, key_hash = generate_api_key()
-    db.add(ApiKey(organization_id=org.id, name="default", prefix=prefix, key_hash=key_hash))
+    db.add(
+        ApiKey(
+            organization_id=org.id, name="default", prefix=prefix, key_hash=key_hash, scopes=["*"]
+        )
+    )
     db.commit()
 
     return OrgBootstrapOut(organization=OrgOut.model_validate(org), api_key=full_key)
 
 
 @router.post("/orgs/keys", response_model=ApiKeyIssued, status_code=status.HTTP_201_CREATED)
-def issue_key(payload: ApiKeyCreate, org_id: CurrentOrg, db: DbSession) -> ApiKeyIssued:
+def issue_key(payload: ApiKeyCreate, org_id: AdminOrg, db: DbSession) -> ApiKeyIssued:
     full_key, prefix, key_hash = generate_api_key()
-    api_key = ApiKey(organization_id=org_id, name=payload.name, prefix=prefix, key_hash=key_hash)
+    api_key = ApiKey(
+        organization_id=org_id,
+        name=payload.name,
+        prefix=prefix,
+        key_hash=key_hash,
+        scopes=payload.scopes,
+    )
     db.add(api_key)
     db.commit()
     return ApiKeyIssued(key=ApiKeyOut.model_validate(api_key), api_key=full_key)
 
 
 @router.get("/orgs/keys", response_model=list[ApiKeyOut])
-def list_keys(org_id: CurrentOrg, db: DbSession) -> list[ApiKeyOut]:
+def list_keys(org_id: AdminOrg, db: DbSession) -> list[ApiKeyOut]:
     rows = (
         db.execute(
             select(ApiKey).where(ApiKey.organization_id == org_id).order_by(ApiKey.created_at)
@@ -63,7 +73,7 @@ def list_keys(org_id: CurrentOrg, db: DbSession) -> list[ApiKeyOut]:
 
 
 @router.delete("/orgs/keys/{key_id}", status_code=status.HTTP_204_NO_CONTENT)
-def revoke_key(key_id: uuid.UUID, org_id: CurrentOrg, db: DbSession) -> Response:
+def revoke_key(key_id: uuid.UUID, org_id: AdminOrg, db: DbSession) -> Response:
     """Revoke a key. Scoped by organization_id: you cannot revoke another org's key."""
     api_key = db.execute(
         select(ApiKey).where(ApiKey.id == key_id, ApiKey.organization_id == org_id)
