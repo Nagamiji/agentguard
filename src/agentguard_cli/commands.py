@@ -245,3 +245,116 @@ def _outcome_from_gate(
         sarif=sarif,
         report=report,
     )
+
+
+def do_init(dir_path: str) -> int:
+    """Initialize configuration templates for AgentGuard."""
+    base = Path(dir_path)
+    try:
+        base.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        print(f"Could not create directory {dir_path}: {exc}")
+        return 10
+
+    manifest_content = {
+        "prompts": [
+            {
+                "role": "system",
+                "content": (
+                    "You are a customer support agent. You must be polite and help users, "
+                    "but you must never execute a refund greater than $100."
+                ),
+            }
+        ],
+        "tools": [
+            {
+                "name": "issue_refund",
+                "description": "Refund an order to the customer.",
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "amount": {
+                            "type": "number",
+                            "description": "The amount to refund in USD.",
+                        }
+                    },
+                    "required": ["amount"],
+                },
+            }
+        ],
+        "model": {"provider": "vertex", "id": "gemini-2.5-flash"},
+    }
+
+    policy_content = {
+        "scope_type": "organization",
+        "name": "Acme Support Bot Guardrails",
+        "rules": {
+            "max_tool_arg": [
+                {
+                    "tool": "issue_refund",
+                    "arg": "amount",
+                    "max": 100,
+                }
+            ]
+        },
+    }
+
+    workflow_content = """name: AgentGuard Scan
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  agentguard-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install AgentGuard CLI
+        run: |
+          pip install --index-url https://pypi.org/simple/ agentguard-cli
+
+      - name: Run AgentGuard Scan
+        env:
+          AGENTGUARD_API_URL: ${{ secrets.AGENTGUARD_API_URL }}
+          AGENTGUARD_API_KEY: ${{ secrets.AGENTGUARD_API_KEY }}
+        run: |
+          agentguard scan \\
+            --agent customer-support-bot \\
+            --manifest manifest.json \\
+            --environment prod \\
+            --html report.html \\
+            --sarif findings.sarif \\
+            --import-library
+"""
+
+    manifest_path = base / "manifest.json"
+    policy_path = base / "policy.json"
+    workflow_dir = base / ".github" / "workflows"
+    workflow_path = workflow_dir / "agentguard.yml"
+
+    try:
+        manifest_path.write_text(json.dumps(manifest_content, indent=2) + "\n")
+        print(f"Created template: {manifest_path.name}")
+
+        policy_path.write_text(json.dumps(policy_content, indent=2) + "\n")
+        print(f"Created template: {policy_path.name}")
+
+        workflow_dir.mkdir(parents=True, exist_ok=True)
+        workflow_path.write_text(workflow_content)
+        print(f"Created template: .github/workflows/{workflow_path.name}")
+
+    except OSError as exc:
+        print(f"Failed to write template files: {exc}")
+        return 10
+
+    return 0

@@ -74,6 +74,9 @@ def _build_parser() -> argparse.ArgumentParser:
     check.add_argument("--environment", default=None)
     check.add_argument("--json", action="store_true")
 
+    init = sub.add_parser("init", help="initialize configuration templates for AgentGuard")
+    init.add_argument("--dir", default=".", help="directory to write templates to (default: .)")
+
     return parser
 
 
@@ -119,6 +122,11 @@ def main(argv: list[str] | None = None) -> int:
         else:
             print(outcome.fingerprint)
         return outcome.exit_code
+
+    if args.command == "init":
+        from agentguard_cli.commands import do_init
+
+        return do_init(args.dir)
 
     if args.command in ("scan", "evaluate"):
         try:

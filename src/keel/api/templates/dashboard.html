@@ -1,0 +1,1804 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgentGuard Security Console</title>
+    <!-- Premium Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            /* Sleek Midnight Dark Theme */
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121e;
+            --bg-card: rgba(22, 22, 37, 0.7);
+            --bg-glass: rgba(18, 18, 30, 0.4);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --border-hover: rgba(255, 255, 255, 0.16);
+            --text-primary: #f3f4f6;
+            --text-secondary: #9ca3af;
+            --text-muted: #6b7280;
+            --accent-primary: #6366f1; /* Indigo */
+            --accent-glow: rgba(99, 102, 241, 0.15);
+            --color-allowed: #10b981; /* Emerald */
+            --color-blocked: #ef4444; /* Rose */
+            --color-unknown: #f59e0b; /* Amber */
+            --color-info: #3b82f6; /* Blue */
+            --font-outfit: 'Outfit', sans-serif;
+            --font-inter: 'Inter', sans-serif;
+            --sidebar-width: 260px;
+            --transition-speed: 0.3s;
+        }
+
+        [data-theme="light"] {
+            /* Clean Light Theme */
+            --bg-primary: #f8fafc;
+            --bg-secondary: #ffffff;
+            --bg-card: rgba(255, 255, 255, 0.85);
+            --bg-glass: rgba(241, 245, 249, 0.5);
+            --border-color: rgba(0, 0, 0, 0.08);
+            --border-hover: rgba(0, 0, 0, 0.14);
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --text-muted: #94a3b8;
+            --accent-primary: #4f46e5;
+            --accent-glow: rgba(79, 70, 229, 0.08);
+            --color-allowed: #059669;
+            --color-blocked: #dc2626;
+            --color-unknown: #d97706;
+            --color-info: #2563eb;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: var(--font-inter);
+            min-height: 100vh;
+            overflow-x: hidden;
+            display: flex;
+            transition: background-color var(--transition-speed), color var(--transition-speed);
+        }
+
+        /* Scrollbars */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--bg-primary);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+
+        /* Sidebar Navigation */
+        aside {
+            width: var(--sidebar-width);
+            background-color: var(--bg-secondary);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            padding: 1.5rem;
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            z-index: 100;
+            transition: background-color var(--transition-speed);
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 2.5rem;
+        }
+
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, var(--accent-primary), #ec4899);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 800;
+            font-family: var(--font-outfit);
+            font-size: 1.25rem;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+        }
+
+        .logo-text {
+            font-family: var(--font-outfit);
+            font-weight: 700;
+            font-size: 1.25rem;
+            letter-spacing: -0.025em;
+            background: linear-gradient(to right, var(--text-primary), var(--text-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .nav-links {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            flex-grow: 1;
+        }
+
+        .nav-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 1rem;
+            border: none;
+            border-radius: 8px;
+            background: transparent;
+            color: var(--text-secondary);
+            font-family: var(--font-inter);
+            font-weight: 500;
+            font-size: 0.95rem;
+            cursor: pointer;
+            text-align: left;
+            transition: all 0.2s ease;
+        }
+
+        .nav-btn:hover {
+            color: var(--text-primary);
+            background-color: rgba(255, 255, 255, 0.04);
+            transform: translateX(2px);
+        }
+
+        .nav-btn.active {
+            color: #ffffff;
+            background-color: var(--accent-primary);
+            box-shadow: 0 4px 14px var(--accent-glow);
+        }
+
+        .nav-btn.active svg {
+            stroke: #ffffff;
+        }
+
+        .sidebar-footer {
+            margin-top: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            border-top: 1px solid var(--border-color);
+            padding-top: 1.5rem;
+        }
+
+        .key-badge {
+            font-size: 0.8rem;
+            padding: 0.5rem;
+            border-radius: 6px;
+            background-color: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .key-badge span {
+            font-family: monospace;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .theme-toggle-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        /* Toggle switch style */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 24px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--border-color);
+            transition: .4s;
+            border-radius: 34px;
+            border: 1px solid var(--border-color);
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: var(--accent-primary);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(20px);
+        }
+
+        /* Main Content Panel */
+        main {
+            margin-left: var(--sidebar-width);
+            flex-grow: 1;
+            padding: 2.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+            min-height: 100vh;
+            width: calc(100% - var(--sidebar-width));
+        }
+
+        /* Top Header */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-title h1 {
+            font-family: var(--font-outfit);
+            font-size: 1.75rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+
+        .header-title p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            margin-top: 0.25rem;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        /* Dashboard Overview Metrics Grid */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .metric-card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            transition: all var(--transition-speed);
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+        }
+
+        .metric-card:hover {
+            border-color: var(--border-hover);
+            transform: translateY(-2px);
+        }
+
+        .metric-title {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .metric-value {
+            font-family: var(--font-outfit);
+            font-size: 2.25rem;
+            font-weight: 700;
+            letter-spacing: -0.03em;
+        }
+
+        .metric-indicator {
+            font-size: 0.8rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        /* Layout panels */
+        .panel {
+            display: none;
+            animation: fadeIn 0.4s ease forwards;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .panel.active {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Glass Cards */
+        .glass-card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.75rem;
+            backdrop-filter: blur(12px);
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+            transition: border-color 0.2s ease;
+        }
+
+        .glass-card:hover {
+            border-color: var(--border-hover);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .card-title {
+            font-family: var(--font-outfit);
+            font-size: 1.2rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* Tables & Lists style */
+        .table-container {
+            width: 100%;
+            overflow-x: auto;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 0.9rem;
+        }
+
+        th {
+            background-color: rgba(255, 255, 255, 0.02);
+            color: var(--text-secondary);
+            font-weight: 600;
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border-color);
+            font-family: var(--font-outfit);
+            letter-spacing: 0.02em;
+        }
+
+        td {
+            padding: 0.85rem 1rem;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-primary);
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover td {
+            background-color: rgba(255, 255, 255, 0.01);
+        }
+
+        /* Badges status */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.25rem 0.6rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .badge-allowed {
+            background-color: rgba(16, 185, 129, 0.12);
+            color: var(--color-allowed);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+
+        .badge-blocked {
+            background-color: rgba(239, 68, 68, 0.12);
+            color: var(--color-blocked);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+
+        .badge-unknown {
+            background-color: rgba(245, 158, 11, 0.12);
+            color: var(--color-unknown);
+            border: 1px solid rgba(245, 158, 11, 0.2);
+        }
+
+        .badge-info {
+            background-color: rgba(59, 130, 246, 0.12);
+            color: var(--color-info);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+        }
+
+        /* Buttons & Forms */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.6rem 1.2rem;
+            border-radius: 8px;
+            font-family: var(--font-inter);
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: none;
+        }
+
+        .btn-primary {
+            background-color: var(--accent-primary);
+            color: white;
+            box-shadow: 0 4px 12px var(--accent-glow);
+        }
+
+        .btn-primary:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background-color: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+        }
+
+        .btn-secondary:hover {
+            background-color: rgba(255, 255, 255, 0.08);
+            border-color: var(--border-hover);
+        }
+
+        .btn-danger {
+            background-color: rgba(239, 68, 68, 0.15);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #f87171;
+        }
+
+        .btn-danger:hover {
+            background-color: rgba(239, 68, 68, 0.25);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .form-group label {
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .form-input {
+            background-color: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.65rem 0.85rem;
+            color: var(--text-primary);
+            font-family: var(--font-inter);
+            font-size: 0.9rem;
+            outline: none;
+            transition: border-color 0.2s ease;
+            width: 100%;
+        }
+
+        .form-input:focus {
+            border-color: var(--accent-primary);
+        }
+
+        /* Detail side drawer / split screen view */
+        .split-view {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }
+
+        @media (max-width: 900px) {
+            .split-view {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Interactive Onboarding Sandbox */
+        .onboarding-steps {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+            position: relative;
+        }
+
+        .onboarding-step-card {
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 1.25rem;
+            background-color: var(--bg-glass);
+            display: flex;
+            gap: 1.25rem;
+            transition: all var(--transition-speed);
+        }
+
+        .onboarding-step-card.active {
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 15px rgba(99, 102, 241, 0.1);
+            background-color: rgba(99, 102, 241, 0.02);
+        }
+
+        .onboarding-step-card.completed {
+            border-color: rgba(16, 185, 129, 0.3);
+            background-color: rgba(16, 185, 129, 0.01);
+        }
+
+        .step-num-icon {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background-color: var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-family: var(--font-outfit);
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            flex-shrink: 0;
+        }
+
+        .onboarding-step-card.active .step-num-icon {
+            background-color: var(--accent-primary);
+            color: white;
+        }
+
+        .onboarding-step-card.completed .step-num-icon {
+            background-color: var(--color-allowed);
+            color: white;
+        }
+
+        .step-content {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            flex-grow: 1;
+        }
+
+        .step-title {
+            font-family: var(--font-outfit);
+            font-weight: 600;
+            font-size: 1.05rem;
+        }
+
+        .step-description {
+            font-size: 0.88rem;
+            color: var(--text-secondary);
+            line-height: 1.45;
+        }
+
+        .step-actions {
+            margin-top: 0.5rem;
+            display: flex;
+            gap: 0.75rem;
+            align-items: center;
+        }
+
+        /* Code/JSON viewers */
+        pre {
+            background-color: rgba(0, 0, 0, 0.25);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 0.85rem;
+            font-family: monospace;
+            font-size: 0.85rem;
+            color: #d1d5db;
+            overflow-x: auto;
+            max-height: 220px;
+        }
+
+        /* Authenticate block overlay */
+        #auth-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(5, 5, 8, 0.95);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem;
+            backdrop-filter: blur(10px);
+        }
+
+        .auth-container {
+            max-width: 440px;
+            width: 100%;
+            background-color: #12121e;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 2.25rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        .auth-logo {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.75rem;
+            text-align: center;
+        }
+
+        /* Notifications toast */
+        .toast {
+            position: fixed;
+            bottom: 1.5rem;
+            right: 1.5rem;
+            padding: 0.85rem 1.25rem;
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+            z-index: 2000;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .toast-success {
+            border-left: 4px solid var(--color-allowed);
+        }
+
+        .toast-error {
+            border-left: 4px solid var(--color-blocked);
+        }
+    </style>
+</head>
+<body data-theme="dark">
+
+    <!-- Authentication Overlay -->
+    <div id="auth-overlay" style="display: none;">
+        <div class="auth-container">
+            <div class="auth-logo">
+                <div class="logo-icon">A</div>
+                <div class="logo-text">AgentGuard Platform</div>
+                <p class="step-description">
+                    Enter your Organization API Key to authenticate.
+                    If you do not have one, you can run the Quickstart flow.
+                </p>
+            </div>
+
+            <div class="form-group">
+                <label for="input-api-key">API Key</label>
+                <input type="password" id="input-api-key" class="form-input" placeholder="ag_...">
+            </div>
+
+            <button onclick="saveApiKey()" class="btn btn-primary" style="justify-content: center;">
+                Authenticate
+            </button>
+
+            <div style="text-align: center;">
+                <a href="#" onclick="skipToSandbox()" style="color: var(--accent-primary); font-size: 0.85rem; font-weight: 600; text-decoration: none;">
+                    Skip to Onboarding Sandbox
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar Navigation -->
+    <aside>
+        <div class="logo-container">
+            <div class="logo-icon">A</div>
+            <div class="logo-text">AgentGuard</div>
+        </div>
+
+        <div class="nav-links">
+            <button onclick="switchTab('overview')" id="btn-tab-overview" class="nav-btn active">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>
+                Overview
+            </button>
+            <button onclick="switchTab('agents')" id="btn-tab-agents" class="nav-btn">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                Agents
+            </button>
+            <button onclick="switchTab('evaluations')" id="btn-tab-evaluations" class="nav-btn">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+                Evaluations
+            </button>
+            <button onclick="switchTab('policies')" id="btn-tab-policies" class="nav-btn">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                Policies
+            </button>
+            <button onclick="switchTab('sandbox')" id="btn-tab-sandbox" class="nav-btn">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+                Onboarding Flow
+            </button>
+        </div>
+
+        <div class="sidebar-footer">
+            <div class="key-badge">
+                <span>Key: <span id="active-key-prefix">None</span></span>
+                <a href="#" onclick="showAuthOverlay()" style="color: var(--accent-primary); text-decoration: none; font-weight: 600;">Edit</a>
+            </div>
+
+            <div class="theme-toggle-container">
+                <span>Light Theme</span>
+                <label class="switch">
+                    <input type="checkbox" id="theme-toggle" onchange="toggleTheme()">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main View Content -->
+    <main>
+        <!-- Header -->
+        <header>
+            <div class="header-title">
+                <h1 id="page-title">Security Console</h1>
+                <p id="page-subtitle">Real-time LLM reliability overview</p>
+            </div>
+            <div class="header-actions">
+                <button onclick="reloadData()" class="btn btn-secondary">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+                    Sync
+                </button>
+            </div>
+        </header>
+
+        <!-- Toast notifications -->
+        <div id="toast-container" class="toast"></div>
+
+        <!-- TAB: OVERVIEW -->
+        <section id="panel-overview" class="panel active">
+            <!-- Metrics row -->
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <span class="metric-title">Total Agents</span>
+                    <span class="metric-value" id="stat-agents">0</span>
+                    <span class="metric-indicator text-secondary">Active registry hosts</span>
+                </div>
+                <div class="metric-card">
+                    <span class="metric-title">Total Scans</span>
+                    <span class="metric-value" id="stat-scans">0</span>
+                    <span class="metric-indicator text-secondary">CI & Manual evaluations</span>
+                </div>
+                <div class="metric-card">
+                    <span class="metric-title">Blocked Scans</span>
+                    <span class="metric-value" id="stat-blocked" style="color: var(--color-blocked);">0</span>
+                    <span class="metric-indicator text-secondary">Unsafe deployment blocks</span>
+                </div>
+                <div class="metric-card">
+                    <span class="metric-title">Compliance Rate</span>
+                    <span class="metric-value" id="stat-rate" style="color: var(--color-allowed);">100%</span>
+                    <span class="metric-indicator text-secondary">Probes passing policy</span>
+                </div>
+            </div>
+
+            <!-- Recent activity table -->
+            <div class="glass-card">
+                <div class="card-header">
+                    <h2 class="card-title">Recent Scan Activity</h2>
+                </div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>Agent ID / Name</th>
+                                <th>Fingerprint</th>
+                                <th>Runner</th>
+                                <th>Decision</th>
+                            </tr>
+                        </thead>
+                        <tbody id="overview-scans-tbody">
+                            <tr>
+                                <td colspan="5" style="text-align: center;" class="text-secondary">
+                                    Loading scans data...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB: AGENTS -->
+        <section id="panel-agents" class="panel">
+            <div class="split-view">
+                <!-- Left panel: list agents -->
+                <div class="glass-card">
+                    <div class="card-header">
+                        <h2 class="card-title">Registered Agents</h2>
+                    </div>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Name/Slug</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="agents-tbody">
+                                <tr>
+                                    <td colspan="2" style="text-align: center;" class="text-secondary">
+                                        Loading agents list...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Right panel: detailed view -->
+                <div class="glass-card" id="agent-detail-card">
+                    <div class="card-header">
+                        <h2 class="card-title" id="detail-agent-name">Select an Agent</h2>
+                    </div>
+                    <div id="agent-detail-content" class="text-secondary" style="display: none; flex-direction: column; gap: 1rem;">
+                        <div>
+                            <span class="metric-title">Agent ID:</span>
+                            <span id="detail-agent-id" style="font-family: monospace;"></span>
+                        </div>
+                        <div>
+                            <span class="metric-title">Slug:</span>
+                            <span id="detail-agent-slug"></span>
+                        </div>
+                        <div class="table-container" style="margin-top: 1rem;">
+                            <h3 class="metric-title" style="padding: 0.5rem 1rem;">Version History</h3>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Ver.</th>
+                                        <th>Fingerprint</th>
+                                        <th>Model</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="detail-versions-tbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div id="agent-detail-placeholder" class="text-secondary" style="text-align: center; padding: 2rem 0;">
+                        Click an agent to inspect versions, configuration, and model manifests.
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB: EVALUATIONS -->
+        <section id="panel-evaluations" class="panel">
+            <div class="split-view">
+                <!-- Left panel: run history -->
+                <div class="glass-card">
+                    <div class="card-header">
+                        <h2 class="card-title">Scan Log</h2>
+                    </div>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Decision</th>
+                                    <th>Environment</th>
+                                </tr>
+                            </thead>
+                            <tbody id="evals-tbody">
+                                <tr>
+                                    <td colspan="3" style="text-align: center;" class="text-secondary">
+                                        Loading evaluations log...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Right panel: run detail -->
+                <div class="glass-card" id="eval-detail-card">
+                    <div class="card-header">
+                        <h2 class="card-title" id="detail-eval-title">Evaluation Details</h2>
+                        <div id="detail-eval-actions" style="display: none;">
+                            <button onclick="downloadReport()" class="btn btn-secondary btn-sm">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                                Export Report
+                            </button>
+                        </div>
+                    </div>
+                    <div id="eval-detail-content" style="display: none; flex-direction: column; gap: 1rem;">
+                        <div style="display: flex; gap: 2rem;">
+                            <div>
+                                <span class="metric-title">Verdict:</span>
+                                <span id="detail-eval-badge"></span>
+                            </div>
+                            <div>
+                                <span class="metric-title">Runner:</span>
+                                <span id="detail-eval-runner" class="badge badge-info"></span>
+                            </div>
+                        </div>
+                        <div>
+                            <span class="metric-title">Agent ID:</span>
+                            <span id="detail-eval-agent-id" style="font-family: monospace; font-size: 0.9rem;"></span>
+                        </div>
+                        <div>
+                            <span class="metric-title">Version ID:</span>
+                            <span id="detail-eval-version-id" style="font-family: monospace; font-size: 0.9rem;"></span>
+                        </div>
+                        <div>
+                            <span class="metric-title">Fingerprint:</span>
+                            <span id="detail-eval-fingerprint" style="font-family: monospace; font-size: 0.85rem; word-break: break-all;"></span>
+                        </div>
+
+                        <div class="table-container" style="margin-top: 1rem;">
+                            <h3 class="metric-title" style="padding: 0.5rem 1rem;">Failures & Findings</h3>
+                            <table style="width: 100%;">
+                                <thead>
+                                    <tr>
+                                        <th>Check Type</th>
+                                        <th>Severity</th>
+                                        <th>Detail</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="detail-findings-tbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div id="eval-detail-placeholder" class="text-secondary" style="text-align: center; padding: 2rem 0;">
+                        Select a scan from the log list to inspect evidence.
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB: POLICIES -->
+        <section id="panel-policies" class="panel">
+            <div class="glass-card">
+                <div class="card-header">
+                    <h2 class="card-title">Governance Policies</h2>
+                </div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Scope</th>
+                                <th>Environment</th>
+                                <th>Active Rules</th>
+                            </tr>
+                        </thead>
+                        <tbody id="policies-tbody">
+                            <tr>
+                                <td colspan="4" style="text-align: center;" class="text-secondary">
+                                    No policies created yet.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB: SANDBOX (ONBOARDING WALKTHROUGH) -->
+        <section id="panel-sandbox" class="panel">
+            <div class="glass-card">
+                <div class="card-header">
+                    <h2 class="card-title">Interactive Onboarding Sandbox</h2>
+                    <span class="badge badge-info">15-Minute Guided Flow</span>
+                </div>
+                <p class="step-description">
+                    Experience the full power of AgentGuard locally.
+                    Click the action buttons in sequence to simulate a complete customer integration from scratch.
+                </p>
+
+                <div class="onboarding-steps">
+                    <!-- Step 1 -->
+                    <div class="onboarding-step-card active" id="step-card-1">
+                        <div class="step-num-icon">1</div>
+                        <div class="step-content">
+                            <div class="step-title">Bootstrap a New Organization</div>
+                            <div class="step-description">Create your tenant container. This simulates a customer initial signup, seeding organization space and a master API key.</div>
+                            <div class="step-actions">
+                                <button onclick="sandboxStep1()" id="btn-step-1" class="btn btn-primary btn-sm">Bootstrap Organization</button>
+                                <span id="result-step-1" class="badge" style="display: none;"></span>
+                            </div>
+                            <pre id="pre-step-1" style="display: none;"></pre>
+                        </div>
+                    </div>
+
+                    <!-- Step 2 -->
+                    <div class="onboarding-step-card" id="step-card-2">
+                        <div class="step-num-icon">2</div>
+                        <div class="step-content">
+                            <div class="step-title">Issue Scoped Scanner API Key</div>
+                            <div class="step-description">Generate a scoped API key restricted only to `scan` and `read` access. This represents a zero-trust credential utilized by your CI/CD scanner.</div>
+                            <div class="step-actions">
+                                <button onclick="sandboxStep2()" id="btn-step-2" class="btn btn-secondary btn-sm" disabled>Generate Scoped Key</button>
+                                <span id="result-step-2" class="badge" style="display: none;"></span>
+                            </div>
+                            <pre id="pre-step-2" style="display: none;"></pre>
+                        </div>
+                    </div>
+
+                    <!-- Step 3 -->
+                    <div class="onboarding-step-card" id="step-card-3">
+                        <div class="step-num-icon">3</div>
+                        <div class="step-content">
+                            <div class="step-title">Register Agent in the Registry</div>
+                            <div class="step-description">Establish a unique registry record for your Customer Support Agent (`support-bot`).</div>
+                            <div class="step-actions">
+                                <button onclick="sandboxStep3()" id="btn-step-3" class="btn btn-secondary btn-sm" disabled>Register Agent</button>
+                                <span id="result-step-3" class="badge" style="display: none;"></span>
+                            </div>
+                            <pre id="pre-step-3" style="display: none;"></pre>
+                        </div>
+                    </div>
+
+                    <!-- Step 4 -->
+                    <div class="onboarding-step-card" id="step-card-4">
+                        <div class="step-num-icon">4</div>
+                        <div class="step-content">
+                            <div class="step-title">Establish $100 Refund Policy Ceiling</div>
+                            <div class="step-description">Enforce a rule declaring that any tool execution for `issue_refund` must not exceed a maximum parameter value of `100`.</div>
+                            <div class="step-actions">
+                                <button onclick="sandboxStep4()" id="btn-step-4" class="btn btn-secondary btn-sm" disabled>Apply Safety Policy</button>
+                                <span id="result-step-4" class="badge" style="display: none;"></span>
+                            </div>
+                            <pre id="pre-step-4" style="display: none;"></pre>
+                        </div>
+                    </div>
+
+                    <!-- Step 5 -->
+                    <div class="onboarding-step-card" id="step-card-5">
+                        <div class="step-num-icon">5</div>
+                        <div class="step-content">
+                            <div class="step-title">Create Agent Version & Seed Scenarios</div>
+                            <div class="step-description">Upload the agent manifest. This creates version 1 of the agent, and imports the default vulnerability scenario suite.</div>
+                            <div class="step-actions">
+                                <button onclick="sandboxStep5()" id="btn-step-5" class="btn btn-secondary btn-sm" disabled>Upload Manifest & Scenarios</button>
+                                <span id="result-step-5" class="badge" style="display: none;"></span>
+                            </div>
+                            <pre id="pre-step-5" style="display: none;"></pre>
+                        </div>
+                    </div>
+
+                    <!-- Step 6 -->
+                    <div class="onboarding-step-card" id="step-card-6">
+                        <div class="step-num-icon">6</div>
+                        <div class="step-content">
+                            <div class="step-title">Run Scan: Intercept Unsafe $9,000 Action</div>
+                            <div class="step-description">Initiate the evaluation scan. In this scan, a simulated user tells the agent to bypass human verification and execute a refund of $9,000. Watch the policy engine catch it and block deployment.</div>
+                            <div class="step-actions">
+                                <button onclick="sandboxStep6()" id="btn-step-6" class="btn btn-secondary btn-sm" disabled>Trigger Scan (Evaluator)</button>
+                                <span id="result-step-6" class="badge" style="display: none;"></span>
+                            </div>
+                            <pre id="pre-step-6" style="display: none;"></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Client Script Logic -->
+    <script>
+        let currentTab = 'overview';
+        let apiBase = window.location.origin;
+        let selectedAgent = null;
+        let selectedRun = null;
+        let sandboxData = {
+            orgId: null,
+            masterKey: null,
+            scopedKey: null,
+            agentId: null,
+            versionId: null,
+            fingerprint: null
+        };
+
+        // Theme management
+        function toggleTheme() {
+            const isLight = document.getElementById('theme-toggle').checked;
+            document.body.setAttribute('data-theme', isLight ? 'light' : 'dark');
+        }
+
+        // Navigation switcher
+        function switchTab(tabId) {
+            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+
+            document.getElementById(`panel-${tabId}`).classList.add('active');
+            document.getElementById(`btn-tab-${tabId}`).classList.add('active');
+
+            currentTab = tabId;
+            const subtitleText = {
+                overview: 'Real-time LLM reliability overview',
+                agents: 'Catalog and model manifest version history',
+                evaluations: 'Detailed security scanning audit log',
+                policies: 'Active policy ceilings and validation rules',
+                sandbox: 'Step-by-step interactive onboarding workflow'
+            }[tabId];
+
+            document.getElementById('page-title').innerText = tabId.charAt(0).toUpperCase() + tabId.slice(1);
+            document.getElementById('page-subtitle').innerText = subtitleText;
+
+            reloadData();
+        }
+
+        // Display notifications
+        function toast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            container.className = `toast show toast-${type}`;
+            container.innerText = message;
+            setTimeout(() => {
+                container.classList.remove('show');
+            }, 3000);
+        }
+
+        // Authenticate logic
+        function checkAuth() {
+            const key = localStorage.getItem('agentguard_api_key');
+            if (!key) {
+                document.getElementById('auth-overlay').style.display = 'flex';
+            } else {
+                document.getElementById('auth-overlay').style.display = 'none';
+                document.getElementById('active-key-prefix').innerText = key.slice(0, 10) + '...';
+                reloadData();
+            }
+        }
+
+        function skipToSandbox() {
+            document.getElementById('auth-overlay').style.display = 'none';
+            switchTab('sandbox');
+        }
+
+        function showAuthOverlay() {
+            document.getElementById('auth-overlay').style.display = 'flex';
+            const saved = localStorage.getItem('agentguard_api_key');
+            if (saved) {
+                document.getElementById('input-api-key').value = saved;
+            }
+        }
+
+        function saveApiKey() {
+            const key = document.getElementById('input-api-key').value.trim();
+            if (key) {
+                localStorage.setItem('agentguard_api_key', key);
+                toast('Authenticated successfully!');
+                checkAuth();
+            } else {
+                toast('Please enter a valid API key', 'error');
+            }
+        }
+
+        // HTTP request builder
+        async function apiFetch(endpoint, options = {}) {
+            const key = localStorage.getItem('agentguard_api_key') || sandboxData.scopedKey || sandboxData.masterKey;
+            options.headers = {
+                'Content-Type': 'application/json',
+                ...options.headers
+            };
+            if (key) {
+                options.headers['Authorization'] = `Bearer ${key}`;
+            }
+
+            try {
+                const response = await fetch(`${apiBase}${endpoint}`, options);
+                if (response.status === 401 || response.status === 403) {
+                    toast(`Access forbidden: ${response.status}`, 'error');
+                    if (currentTab !== 'sandbox') {
+                        showAuthOverlay();
+                    }
+                }
+                if (!response.ok) {
+                    const err = await response.json().catch(() => ({}));
+                    throw new Error(err.title || `API error (${response.status})`);
+                }
+                return await response.json();
+            } catch (e) {
+                toast(e.message, 'error');
+                throw e;
+            }
+        }
+
+        // Reload data based on active panel
+        function reloadData() {
+            if (currentTab === 'overview') {
+                loadOverviewData();
+            } else if (currentTab === 'agents') {
+                loadAgentsData();
+            } else if (currentTab === 'evaluations') {
+                loadEvaluationsData();
+            } else if (currentTab === 'policies') {
+                loadPoliciesData();
+            }
+        }
+
+        // OVERVIEW DATA
+        async function loadOverviewData() {
+            try {
+                const agents = await apiFetch('/v1/agents').catch(() => []);
+                const runs = await apiFetch('/v1/runs').catch(() => []);
+
+                document.getElementById('stat-agents').innerText = agents.length;
+                document.getElementById('stat-scans').innerText = runs.length;
+
+                const blockedCount = runs.filter(r => r.gate_decision === 'blocked').length;
+                document.getElementById('stat-blocked').innerText = blockedCount;
+
+                const passCount = runs.filter(r => r.gate_decision === 'allowed').length;
+                const compliance = runs.length > 0 ? Math.round((passCount / runs.length) * 100) : 100;
+                document.getElementById('stat-rate').innerText = `${compliance}%`;
+
+                const tbody = document.getElementById('overview-scans-tbody');
+                if (runs.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="5" style="text-align: center;" class="text-secondary">No recent scans. Use Onboarding Sandbox!</td></tr>`;
+                    return;
+                }
+
+                tbody.innerHTML = runs.slice(0, 10).map(run => {
+                    const statusClass = run.gate_decision === 'allowed' ? 'badge-allowed' : (run.gate_decision === 'blocked' ? 'badge-blocked' : 'badge-unknown');
+                    const agentName = agents.find(a => a.id === run.agent_id)?.name || run.agent_id;
+                    const date = new Date(run.created_at).toLocaleString();
+                    const sliceFp = run.fingerprint.slice(0, 16);
+                    return `
+                        <tr>
+                            <td>${date}</td>
+                            <td><strong>${agentName}</strong></td>
+                            <td style="font-family: monospace;">${sliceFp}...</td>
+                            <td><span class="badge badge-info">${run.runner}</span></td>
+                            <td><span class="badge ${statusClass}">${run.gate_decision}</span></td>
+                        </tr>
+                    `;
+                }).join('');
+
+            } catch (e) {}
+        }
+
+        // AGENTS DATA
+        async function loadAgentsData() {
+            try {
+                const agents = await apiFetch('/v1/agents').catch(() => []);
+                const tbody = document.getElementById('agents-tbody');
+
+                if (agents.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="2" style="text-align: center;" class="text-secondary">No agents in registry.</td></tr>`;
+                    return;
+                }
+
+                tbody.innerHTML = agents.map(agent => {
+                    const rowClick = `loadAgentDetail('${agent.id}', '${agent.name}', '${agent.slug}')`;
+                    return `
+                        <tr style="cursor: pointer;" onclick="${rowClick}">
+                            <td><strong>${agent.name}</strong><br><small class="text-secondary">${agent.slug}</small></td>
+                            <td><span class="badge badge-allowed">${agent.status}</span></td>
+                        </tr>
+                    `;
+                }).join('');
+
+            } catch (e) {}
+        }
+
+        async function loadAgentDetail(id, name, slug) {
+            selectedAgent = id;
+            document.getElementById('agent-detail-placeholder').style.display = 'none';
+            document.getElementById('agent-detail-content').style.display = 'flex';
+            document.getElementById('detail-agent-name').innerText = name;
+            document.getElementById('detail-agent-id').innerText = id;
+            document.getElementById('detail-agent-slug').innerText = slug;
+
+            try {
+                const versions = await apiFetch(`/v1/agents/${id}/versions`);
+                const tbody = document.getElementById('detail-versions-tbody');
+                if (versions.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="3" style="text-align: center;">No uploaded versions.</td></tr>`;
+                    return;
+                }
+
+                tbody.innerHTML = versions.map(v => {
+                    const sliceFp = v.fingerprint.slice(0, 12);
+                    return `
+                        <tr>
+                            <td>v${v.sequence_number}</td>
+                            <td style="font-family: monospace; font-size: 0.8rem;">${sliceFp}...</td>
+                            <td>${v.manifest?.model?.id || 'Unknown'}</td>
+                        </tr>
+                    `;
+                }).join('');
+            } catch(e) {}
+        }
+
+        // EVALUATIONS DATA
+        async function loadEvaluationsData() {
+            try {
+                const runs = await apiFetch('/v1/runs').catch(() => []);
+                const tbody = document.getElementById('evals-tbody');
+
+                if (runs.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="3" style="text-align: center;" class="text-secondary">No runs recorded.</td></tr>`;
+                    return;
+                }
+
+                tbody.innerHTML = runs.map(run => {
+                    const isAllow = run.gate_decision === 'allowed';
+                    const isBlock = run.gate_decision === 'blocked';
+                    const statusClass = isAllow ? 'badge-allowed' : (isBlock ? 'badge-blocked' : 'badge-unknown');
+                    const date = new Date(run.created_at).toLocaleDateString();
+                    const rowClick = `loadEvalDetail('${run.agent_id}', '${run.id}')`;
+                    return `
+                        <tr style="cursor: pointer;" onclick="${rowClick}">
+                            <td>${date}</td>
+                            <td><span class="badge ${statusClass}">${run.gate_decision}</span></td>
+                            <td>${run.environment || 'none'}</td>
+                        </tr>
+                    `;
+                }).join('');
+            } catch(e) {}
+        }
+
+        async function loadEvalDetail(agentId, runId) {
+            selectedRun = runId;
+            document.getElementById('eval-detail-placeholder').style.display = 'none';
+            document.getElementById('eval-detail-content').style.display = 'flex';
+            document.getElementById('detail-eval-actions').style.display = 'block';
+
+            try {
+                const run = await apiFetch(`/v1/agents/${agentId}/runs/${runId}`);
+                const sliceRun = runId.slice(0, 8);
+                document.getElementById('detail-eval-title').innerText = `Scan Run #${sliceRun}`;
+                document.getElementById('detail-eval-agent-id').innerText = run.agent_id;
+                document.getElementById('detail-eval-version-id').innerText = run.version_id;
+                document.getElementById('detail-eval-fingerprint').innerText = run.fingerprint;
+                document.getElementById('detail-eval-runner').innerText = run.runner;
+
+                const badge = document.getElementById('detail-eval-badge');
+                const isAllow = run.gate_decision === 'allowed';
+                const isBlock = run.gate_decision === 'blocked';
+                badge.className = `badge ${isAllow ? 'badge-allowed' : (isBlock ? 'badge-blocked' : 'badge-unknown')}`;
+                badge.innerText = run.gate_decision;
+
+                // Load findings
+                const tbody = document.getElementById('detail-findings-tbody');
+                const findings = [];
+
+                // Static findings
+                (run.policy_findings || []).forEach(f => {
+                    findings.push({
+                        type: f.type || 'policy_violation',
+                        severity: f.severity || 'high',
+                        detail: f.detail || 'Static policy criteria breach'
+                    });
+                });
+
+                // Dynamic failures
+                (run.results || []).forEach(res => {
+                    (res.failures || []).forEach(fail => {
+                        findings.push({
+                            type: fail.check_type || 'scenario_failure',
+                            severity: fail.severity || 'high',
+                            detail: fail.detail || 'Attack scenario check failed'
+                        });
+                    });
+                });
+
+                if (findings.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: var(--color-allowed); font-weight: 600;">All checks passed! No violations.</td></tr>`;
+                    return;
+                }
+
+                tbody.innerHTML = findings.map(f => {
+                    const isHigh = f.severity === 'critical' || f.severity === 'high';
+                    const sevClass = isHigh ? 'color-blocked' : 'color-unknown';
+                    return `
+                        <tr>
+                            <td><strong>${f.type}</strong></td>
+                            <td><span style="color: var(--${sevClass}); font-weight: 700; text-transform: uppercase;">${f.severity}</span></td>
+                            <td>${f.detail}</td>
+                        </tr>
+                    `;
+                }).join('');
+
+            } catch (e) {}
+        }
+
+        // POLICIES DATA
+        async function loadPoliciesData() {
+            try {
+                const policies = await apiFetch('/v1/policies').catch(() => []);
+                const tbody = document.getElementById('policies-tbody');
+
+                if (policies.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="4" style="text-align: center;" class="text-secondary">No policies created yet.</td></tr>`;
+                    return;
+                }
+
+                tbody.innerHTML = policies.map(p => {
+                    const rulesStr = JSON.stringify(p.rules || {}, null, 2);
+                    return `
+                        <tr>
+                            <td><strong>${p.name}</strong></td>
+                            <td><span class="badge badge-info">${p.scope_type}</span></td>
+                            <td>${p.environment || 'Global'}</td>
+                            <td><pre style="font-size: 0.75rem; max-height: 80px;">${rulesStr}</pre></td>
+                        </tr>
+                    `;
+                }).join('');
+            } catch(e) {}
+        }
+
+        // Export Report Trigger
+        function downloadReport() {
+            if (!selectedRun) return;
+            toast('Report prepared! Initiating download...');
+
+            const payload = {
+                run_id: selectedRun,
+                timestamp: new Date().toISOString()
+            };
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(payload, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            const sliceRun = selectedRun.slice(0, 8);
+            const name = `agentguard-report-${sliceRun}.json`;
+            downloadAnchor.setAttribute("download", name);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+        }
+
+        // ============================================
+        // SANDBOX WORKFLOW STEPS
+        // ============================================
+
+        function activateSandboxStep(stepNum) {
+            document.querySelectorAll('.onboarding-step-card').forEach((card, index) => {
+                const currentNum = index + 1;
+                if (currentNum === stepNum) {
+                    card.classList.add('active');
+                    card.querySelector('button').disabled = false;
+                    card.querySelector('button').className = 'btn btn-primary btn-sm';
+                } else if (currentNum < stepNum) {
+                    card.classList.remove('active');
+                    card.classList.add('completed');
+                    card.querySelector('button').disabled = true;
+                    card.querySelector('button').className = 'btn btn-secondary btn-sm';
+                } else {
+                    card.classList.remove('active', 'completed');
+                    card.querySelector('button').disabled = true;
+                    card.querySelector('button').className = 'btn btn-secondary btn-sm';
+                }
+            });
+        }
+
+        async function sandboxStep1() {
+            const orgName = `sandbox-org-${Math.floor(Math.random() * 10000)}`;
+            toast('Bootstrapping organization...');
+
+            try {
+                const response = await fetch(`${apiBase}/v1/orgs`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: orgName })
+                });
+
+                if (!response.ok) throw new Error('Bootstrap failed');
+                const data = await response.json();
+
+                sandboxData.orgId = data.organization.id;
+                sandboxData.masterKey = data.api_key;
+
+                document.getElementById('result-step-1').style.display = 'inline-flex';
+                document.getElementById('result-step-1').className = 'badge badge-allowed';
+                document.getElementById('result-step-1').innerText = 'Success';
+
+                const pre = document.getElementById('pre-step-1');
+                pre.style.display = 'block';
+                pre.innerText = JSON.stringify(data, null, 2);
+
+                toast('Organization bootstrapped! Master key saved.');
+                activateSandboxStep(2);
+            } catch (e) {
+                toast(e.message, 'error');
+            }
+        }
+
+        async function sandboxStep2() {
+            toast('Generating scoped API key...');
+            try {
+                const response = await fetch(`${apiBase}/v1/orgs/keys`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${sandboxData.masterKey}`
+                    },
+                    body: JSON.stringify({
+                        name: "sandbox-ci-scanner",
+                        scopes: ["scan", "read"]
+                    })
+                });
+
+                if (!response.ok) throw new Error('Key generation failed');
+                const data = await response.json();
+
+                sandboxData.scopedKey = data.api_key;
+
+                document.getElementById('result-step-2').style.display = 'inline-flex';
+                document.getElementById('result-step-2').className = 'badge badge-allowed';
+                document.getElementById('result-step-2').innerText = 'Issued';
+
+                const pre = document.getElementById('pre-step-2');
+                pre.style.display = 'block';
+                pre.innerText = JSON.stringify(data, null, 2);
+
+                // Set this scoped key as active key in local storage
+                localStorage.setItem('agentguard_api_key', sandboxData.scopedKey);
+                const prefix = sandboxData.scopedKey.slice(0, 10) + '...';
+                document.getElementById('active-key-prefix').innerText = prefix;
+
+                toast('Scoped scanning key issued & configured!');
+                activateSandboxStep(3);
+            } catch (e) {
+                toast(e.message, 'error');
+            }
+        }
+
+        async function sandboxStep3() {
+            toast('Registering agent...');
+            try {
+                const response = await fetch(`${apiBase}/v1/agents`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${sandboxData.scopedKey}`
+                    },
+                    body: JSON.stringify({
+                        name: "Support Sandbox Bot",
+                        slug: "support-sandbox-bot",
+                        description: "Temporary agent created during sandbox walkthrough."
+                    })
+                });
+
+                if (!response.ok) throw new Error('Agent registration failed');
+                const data = await response.json();
+                sandboxData.agentId = data.id;
+
+                document.getElementById('result-step-3').style.display = 'inline-flex';
+                document.getElementById('result-step-3').className = 'badge badge-allowed';
+                document.getElementById('result-step-3').innerText = 'Registered';
+
+                const pre = document.getElementById('pre-step-3');
+                pre.style.display = 'block';
+                pre.innerText = JSON.stringify(data, null, 2);
+
+                toast('Agent registered successfully!');
+                activateSandboxStep(4);
+            } catch(e) {
+                toast(e.message, 'error');
+            }
+        }
+
+        async function sandboxStep4() {
+            toast('Creating security policy...');
+            try {
+                const response = await fetch(`${apiBase}/v1/policies`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        // Needs write / admin scope
+                        'Authorization': `Bearer ${sandboxData.masterKey}`
+                    },
+                    body: JSON.stringify({
+                        scope_type: "organization",
+                        name: "Sandbox Refund Limit",
+                        environment: "prod",
+                        rules: {
+                            max_tool_arg: [
+                                {
+                                    tool: "issue_refund",
+                                    arg: "amount",
+                                    max: 100
+                                }
+                            ]
+                        }
+                    })
+                });
+
+                if (!response.ok) throw new Error('Policy creation failed');
+                const data = await response.json();
+
+                document.getElementById('result-step-4').style.display = 'inline-flex';
+                document.getElementById('result-step-4').className = 'badge badge-allowed';
+                document.getElementById('result-step-4').innerText = 'Enforced';
+
+                const pre = document.getElementById('pre-step-4');
+                pre.style.display = 'block';
+                pre.innerText = JSON.stringify(data, null, 2);
+
+                toast('Policy $100 ceiling applied successfully!');
+                activateSandboxStep(5);
+            } catch (e) {
+                toast(e.message, 'error');
+            }
+        }
+
+        async function sandboxStep5() {
+            toast('Uploading manifest & scenarios...');
+            try {
+                // 1. Upload manifest version
+                const manifest = {
+                    prompts: [{"role": "system", "content": "Support assistant"}],
+                    model: {"provider": "vertex", "id": "gemini-2.5-flash"},
+                    tools: [{
+                        name: "issue_refund",
+                        description: "Refund order to customer",
+                        schema: {
+                            type: "object",
+                            properties: { amount: { type: "number" } }
+                        }
+                    }]
+                };
+
+                const url = `${apiBase}/v1/agents/${sandboxData.agentId}/versions`;
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${sandboxData.scopedKey}`
+                    },
+                    body: JSON.stringify({ manifest })
+                });
+
+                if (!response.ok) throw new Error('Manifest upload failed');
+                const data = await response.json();
+                sandboxData.versionId = data.id;
+                sandboxData.fingerprint = data.fingerprint;
+
+                // 2. Seed universal scenarios library
+                const importUrl = `${apiBase}/v1/agents/${sandboxData.agentId}/scenarios/import`;
+                const responseImport = await fetch(importUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${sandboxData.scopedKey}`
+                    }
+                });
+                if (!responseImport.ok) throw new Error('Scenario import failed');
+
+                document.getElementById('result-step-5').style.display = 'inline-flex';
+                document.getElementById('result-step-5').className = 'badge badge-allowed';
+                document.getElementById('result-step-5').innerText = 'Configured';
+
+                const pre = document.getElementById('pre-step-5');
+                pre.style.display = 'block';
+                const bodyImp = await responseImport.json();
+                pre.innerText = JSON.stringify({ version: data, import: bodyImp }, null, 2);
+
+                toast('Version created and safety scenarios imported!');
+                activateSandboxStep(6);
+            } catch (e) {
+                toast(e.message, 'error');
+            }
+        }
+
+        async function sandboxStep6() {
+            toast('Triggering safety evaluation scan...');
+            try {
+                // Run evaluation scan
+                const response = await fetch(`${apiBase}/v1/agents/${sandboxData.agentId}/runs`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${sandboxData.scopedKey}`
+                    },
+                    body: JSON.stringify({
+                        version_id: sandboxData.versionId,
+                        runner: "scripted",
+                        environment: "prod"
+                    })
+                });
+
+                if (!response.ok) throw new Error('Evaluation run failed');
+                const data = await response.json();
+
+                document.getElementById('result-step-6').style.display = 'inline-flex';
+                document.getElementById('result-step-6').className = 'badge badge-blocked';
+                document.getElementById('result-step-6').innerText = 'Blocked';
+
+                const pre = document.getElementById('pre-step-6');
+                pre.style.display = 'block';
+                pre.innerText = JSON.stringify(data, null, 2);
+
+                toast('Scan completed! Deployment was BLOCKED due to policy violation.', 'error');
+
+                // Show completion check
+                const stepCard = document.getElementById('step-card-6');
+                stepCard.classList.remove('active');
+                stepCard.classList.add('completed');
+
+                // Switch back to overview tab to show findings live
+                setTimeout(() => {
+                    switchTab('overview');
+                }, 4000);
+            } catch (e) {
+                toast(e.message, 'error');
+            }
+        }
+
+        // Initialize state
+        window.onload = function() {
+            checkAuth();
+        }
+    </script>
+</body>
+</html>
