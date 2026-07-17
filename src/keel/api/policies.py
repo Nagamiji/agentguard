@@ -6,7 +6,7 @@ from sqlalchemy import select
 
 from keel.api.lookups import get_agent_or_404
 from keel.api.policy_service import effective_policy
-from keel.deps import CurrentOrg, DbSession
+from keel.deps import DbSession, ReadOrg, WriteOrg
 from keel.models import AgentVersion, Policy, PolicyVersion
 from keel.policy import PolicyError, fingerprint_rules, validate_rules
 from keel.policy.resolver import effective_values
@@ -56,7 +56,7 @@ def _existing_policy(
 
 
 @router.post("/policies", response_model=PolicyCreated, status_code=status.HTTP_201_CREATED)
-def create_policy(payload: PolicyCreate, org_id: CurrentOrg, db: DbSession) -> PolicyCreated:
+def create_policy(payload: PolicyCreate, org_id: WriteOrg, db: DbSession) -> PolicyCreated:
     scope_id = _resolve_scope_id(payload, org_id, db)
 
     try:
@@ -107,7 +107,7 @@ def create_policy(payload: PolicyCreate, org_id: CurrentOrg, db: DbSession) -> P
 def add_policy_version(
     policy_id: uuid.UUID,
     payload: PolicyVersionCreate,
-    org_id: CurrentOrg,
+    org_id: WriteOrg,
     db: DbSession,
     response: Response,
 ) -> PolicyVersionOut:
@@ -153,13 +153,13 @@ def add_policy_version(
 
 
 @router.get("/policies", response_model=list[PolicyOut])
-def list_policies(org_id: CurrentOrg, db: DbSession) -> list[PolicyOut]:
+def list_policies(org_id: ReadOrg, db: DbSession) -> list[PolicyOut]:
     rows = db.execute(select(Policy).order_by(Policy.created_at)).scalars().all()
     return [PolicyOut.model_validate(p) for p in rows]
 
 
 @router.get("/policies/{policy_id}", response_model=PolicyDetail)
-def get_policy(policy_id: uuid.UUID, org_id: CurrentOrg, db: DbSession) -> PolicyDetail:
+def get_policy(policy_id: uuid.UUID, org_id: ReadOrg, db: DbSession) -> PolicyDetail:
     policy = db.execute(select(Policy).where(Policy.id == policy_id)).scalar_one_or_none()
     if policy is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Policy not found")
@@ -180,7 +180,7 @@ def get_policy(policy_id: uuid.UUID, org_id: CurrentOrg, db: DbSession) -> Polic
 @router.get("/agents/{agent_id}/policy", response_model=CompiledPolicyOut)
 def get_agent_policy(
     agent_id: uuid.UUID,
-    org_id: CurrentOrg,
+    org_id: ReadOrg,
     db: DbSession,
     environment: str | None = Query(default=None, description="Which environment's policy."),
 ) -> CompiledPolicyOut:

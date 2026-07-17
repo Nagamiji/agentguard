@@ -1,4 +1,6 @@
+import logging
 import re
+import time
 import uuid
 
 from fastapi import APIRouter, Query, Response, status
@@ -6,15 +8,18 @@ from fastapi.exceptions import HTTPException
 from sqlalchemy import select
 
 from keel.api.policy_service import effective_policy
-from keel.deps import CurrentOrg, DbSession
+from keel.context import set_run_id
+from keel.deps import DbSession, ReadOrg, ScanOrg, WriteOrg
 from keel.evals.checks import CheckError, validate_checks
 from keel.evals.engine import GateDecision, RunStatus, decide, run_scenario
 from keel.evals.library import LIBRARY_VERSION, all_scenarios, concrete_input, scenarios_for
 from keel.evals.risk import ResultView, classify
 from keel.evals.runner import RunnerError, get_runner
+from keel.metrics import metrics
 from keel.models import Agent, AgentVersion, EvalResult, EvalRun, EvalScenario
 from keel.policy import fingerprint_rules
 from keel.policy.resolver import effective_values
+from keel.rate_limit import rate_limited
 from keel.schemas import (
     CategoryRiskOut,
     EvalResultOut,
@@ -31,6 +36,7 @@ from keel.schemas import (
 )
 from keel.signing import sign_verdict
 
+logger = logging.getLogger("evals")
 router = APIRouter(prefix="/v1", tags=["evals"])
 
 
@@ -51,7 +57,7 @@ def _get_agent(agent_id: uuid.UUID, db: DbSession) -> Agent:
     "/agents/{agent_id}/scenarios", response_model=ScenarioOut, status_code=status.HTTP_201_CREATED
 )
 def create_scenario(
-    agent_id: uuid.UUID, payload: ScenarioCreate, org_id: CurrentOrg, db: DbSession
+    agent_id: uuid.UUID, payload: ScenarioCreate, org_id: WriteOrg, db: DbSession
 ) -> ScenarioOut:
     agent = _get_agent(agent_id, db)
 
@@ -87,7 +93,7 @@ def create_scenario(
 
 
 @router.get("/agents/{agent_id}/scenarios", response_model=list[ScenarioOut])
-def list_scenarios(agent_id: uuid.UUID, org_id: CurrentOrg, db: DbSession) -> list[ScenarioOut]:
+def list_scenarios(agent_id: uuid.UUID, org_id: ReadOrg, db: DbSession) -> list[ScenarioOut]:
     agent = _get_agent(agent_id, db)
     rows = (
         db.execute(
@@ -103,7 +109,7 @@ def list_scenarios(agent_id: uuid.UUID, org_id: CurrentOrg, db: DbSession) -> li
 
 @router.delete("/agents/{agent_id}/scenarios/{scenario_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_scenario(
-    agent_id: uuid.UUID, scenario_id: uuid.UUID, org_id: CurrentOrg, db: DbSession
+    agent_id: uuid.UUID, scenario_id: uuid.UUID, org_id: WriteOrg, db: DbSession
 ) -> Response:
     agent = _get_agent(agent_id, db)
     scenario = db.execute(
@@ -119,10 +125,13 @@ def delete_scenario(
 
 
 @router.post(
-    "/agents/{agent_id}/runs", response_model=EvalRunDetail, status_code=status.HTTP_201_CREATED
+    "/agents/{agent_id}/runs",
+    response_model=EvalRunDetail,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[rate_limited("scans")],
 )
 def create_run(
-    agent_id: uuid.UUID, payload: EvalRunCreate, org_id: CurrentOrg, db: DbSession
+    agent_id: uuid.UUID, payload: EvalRunCreate, org_id: ScanOrg, db: DbSession
 ) -> EvalRunDetail:
     """Evaluate a version against every enabled scenario.
 
@@ -167,16 +176,51 @@ def create_run(
     policy_findings = compiled.manifest_findings
     policy_fingerprint = fingerprint_rules(effective_values(resolved)) if resolved else None
 
+    # Structured Logging: evaluation started
+    logger.info(
+        "Evaluation started",
+        extra={
+            "event_type": "evaluation_started",
+            "agent_id": str(agent_id),
+            "version_id": str(version.id),
+            "runner": payload.runner,
+            "environment": payload.environment or "none",
+            "policy_fingerprint": policy_fingerprint or "none",
+            "scenarios_count": len(scenarios),
+        },
+    )
+
+    # Record scenario total metrics
+    for s in scenarios:
+        metrics.scenarios_total.inc(labels={"category": str(s.category)})
+
+    start_time = time.perf_counter()
     results = [
         run_scenario(runner, version.manifest, s.id, s.input, [*s.checks, *policy_checks])
         for s in scenarios
     ]
+    duration_sec = time.perf_counter() - start_time
+
     run_status, gate_decision = decide(results)
+
+    # Record failed scenario metrics
+    for r in results:
+        if not r.passed:
+            scen = next((s for s in scenarios if s.id == r.scenario_id), None)
+            category = scen.category if scen else "unknown"
+            metrics.scenarios_failed_total.inc(labels={"category": str(category)})
 
     # A static policy violation is definitive: it blocks even a run with no scenarios or one
     # whose scenarios could not complete. Fail closed.
     if any(f.get("severity") in ("critical", "high") for f in policy_findings):
         run_status, gate_decision = RunStatus.FAILED, GateDecision.BLOCKED
+        for finding in policy_findings:
+            metrics.policy_violations_total.inc(
+                labels={
+                    "rule_type": finding.get("type", "unknown"),
+                    "environment": payload.environment or "none",
+                }
+            )
 
     run = EvalRun(
         organization_id=org_id,
@@ -195,6 +239,22 @@ def create_run(
     db.add(run)
     db.flush()  # need run.id before inserting results
 
+    # Set run_id context variable
+    set_run_id(str(run.id))
+
+    # Record run metrics
+    metrics.eval_runs_total.inc(
+        labels={
+            "decision": str(gate_decision),
+            "runner": payload.runner,
+            "environment": payload.environment or "none",
+        }
+    )
+    metrics.eval_run_duration_seconds.observe(
+        duration_sec,
+        labels={"runner": payload.runner, "environment": payload.environment or "none"},
+    )
+
     rows = [
         EvalResult(
             organization_id=org_id,
@@ -212,6 +272,66 @@ def create_run(
         db.add(row)
 
     db.commit()
+
+    # Structured Logging: evaluation completed
+    model_info = version.manifest.get("model", {})
+    model_provider = (
+        model_info.get("provider", "unknown") if isinstance(model_info, dict) else "unknown"
+    )
+    model_id = model_info.get("id", "unknown") if isinstance(model_info, dict) else "unknown"
+
+    logger.info(
+        "Evaluation completed",
+        extra={
+            "event_type": "evaluation_completed",
+            "agent_id": str(agent_id),
+            "version_id": str(version.id),
+            "run_id": str(run.id),
+            "gate_decision": str(gate_decision),
+            "total_scenarios": len(results),
+            "failed_scenarios": sum(1 for r in results if not r.passed),
+            "environment": payload.environment or "none",
+            "model_provider": model_provider,
+            "model_id": model_id,
+            "run_status": str(run_status),
+        },
+    )
+
+    if gate_decision == GateDecision.BLOCKED:
+        logger.warning(
+            "Evaluation blocked deployment",
+            extra={
+                "event_type": "blocked_decision",
+                "agent_id": str(agent_id),
+                "version_id": str(version.id),
+                "run_id": str(run.id),
+                "policy_findings": policy_findings,
+                "failed_scenarios_count": sum(1 for r in results if not r.passed),
+            },
+        )
+
+    # Dynamic policy violations logging
+    for r in results:
+        for failure in r.failures:
+            check_type = getattr(failure, "check_type", "unknown")
+            metrics.policy_violations_total.inc(
+                labels={
+                    "rule_type": check_type,
+                    "environment": payload.environment or "none",
+                }
+            )
+            logger.warning(
+                "Policy violation detected",
+                extra={
+                    "event_type": "policy_violation",
+                    "agent_id": str(agent_id),
+                    "version_id": str(version.id),
+                    "run_id": str(run.id),
+                    "check_type": check_type,
+                    "severity": getattr(failure, "severity", "unknown"),
+                    "detail": getattr(failure, "detail", ""),
+                },
+            )
 
     # Build the response from the objects we already hold, NOT by re-querying.
     #
@@ -242,7 +362,7 @@ def _run_detail(run: EvalRun, db: DbSession) -> EvalRunDetail:
 
 
 @router.get("/agents/{agent_id}/runs", response_model=list[EvalRunOut])
-def list_runs(agent_id: uuid.UUID, org_id: CurrentOrg, db: DbSession) -> list[EvalRunOut]:
+def list_runs(agent_id: uuid.UUID, org_id: ReadOrg, db: DbSession) -> list[EvalRunOut]:
     agent = _get_agent(agent_id, db)
     rows = (
         db.execute(
@@ -256,7 +376,7 @@ def list_runs(agent_id: uuid.UUID, org_id: CurrentOrg, db: DbSession) -> list[Ev
 
 @router.get("/agents/{agent_id}/runs/{run_id}", response_model=EvalRunDetail)
 def get_run(
-    agent_id: uuid.UUID, run_id: uuid.UUID, org_id: CurrentOrg, db: DbSession
+    agent_id: uuid.UUID, run_id: uuid.UUID, org_id: ReadOrg, db: DbSession
 ) -> EvalRunDetail:
     agent = _get_agent(agent_id, db)
     run = db.execute(
@@ -267,10 +387,14 @@ def get_run(
     return _run_detail(run, db)
 
 
-@router.get("/agents/{agent_id}/gate", response_model=GateOut)
+@router.get(
+    "/agents/{agent_id}/gate",
+    response_model=GateOut,
+    dependencies=[rate_limited("scans")],
+)
 def gate(
     agent_id: uuid.UUID,
-    org_id: CurrentOrg,
+    org_id: ScanOrg,
     db: DbSession,
     fingerprint: str = Query(description="The exact configuration being deployed."),
 ) -> GateOut:
@@ -348,7 +472,7 @@ def gate(
 
 
 @router.get("/library", response_model=LibraryOut)
-def get_library(org_id: CurrentOrg) -> LibraryOut:
+def get_library(org_id: ReadOrg) -> LibraryOut:
     """Browse the built-in attack corpus. Static content — the moat, made inspectable."""
     scenarios = all_scenarios()
     return LibraryOut(
@@ -374,7 +498,7 @@ def get_library(org_id: CurrentOrg) -> LibraryOut:
     response_model=ImportResult,
     status_code=status.HTTP_201_CREATED,
 )
-def import_library(agent_id: uuid.UUID, org_id: CurrentOrg, db: DbSession) -> ImportResult:
+def import_library(agent_id: uuid.UUID, org_id: WriteOrg, db: DbSession) -> ImportResult:
     """Seed an agent with the built-in library.
 
     Idempotent by slug (= library key): re-importing skips what is already present rather
@@ -436,10 +560,14 @@ def import_library(agent_id: uuid.UUID, org_id: CurrentOrg, db: DbSession) -> Im
     )
 
 
-@router.get("/agents/{agent_id}/risk", response_model=RiskReport)
+@router.get(
+    "/agents/{agent_id}/risk",
+    response_model=RiskReport,
+    dependencies=[rate_limited("scans")],
+)
 def risk_report(
     agent_id: uuid.UUID,
-    org_id: CurrentOrg,
+    org_id: ScanOrg,
     db: DbSession,
     fingerprint: str = Query(description="The exact configuration whose risk you want."),
 ) -> RiskReport:

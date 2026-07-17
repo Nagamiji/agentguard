@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from keel.evals.taxonomy import ScenarioCategory
 
@@ -25,6 +25,7 @@ class ApiKeyOut(BaseModel):
     id: uuid.UUID
     name: str
     prefix: str
+    scopes: list[str]
     created_at: datetime
     revoked_at: datetime | None = None
 
@@ -41,6 +42,16 @@ class OrgBootstrapOut(BaseModel):
 
 class ApiKeyCreate(BaseModel):
     name: str = Field(default="default", min_length=1, max_length=200)
+    scopes: list[str] = Field(default_factory=lambda: ["*"])
+
+    @field_validator("scopes")
+    @classmethod
+    def validate_scopes(cls, v: list[str]) -> list[str]:
+        allowed = {"*", "admin", "read", "write", "scan"}
+        for s in v:
+            if s not in allowed:
+                raise ValueError(f"Invalid scope '{s}', must be one of {sorted(allowed)}")
+        return v
 
 
 class ProjectCreate(BaseModel):
