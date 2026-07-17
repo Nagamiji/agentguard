@@ -4,6 +4,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from keel.evals.taxonomy import ScenarioCategory
+
 
 class OrgCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
@@ -137,9 +139,8 @@ class ScenarioCreate(BaseModel):
         default=None, min_length=1, max_length=200, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$"
     )
     description: str | None = None
-    category: Literal[
-        "unsafe_tool_use", "prompt_injection", "data_leakage", "non_compliance", "hallucination"
-    ]
+    # The taxonomy the library is organised around (keel/evals/taxonomy.py).
+    category: ScenarioCategory
     input: dict[str, Any]
     checks: list[dict[str, Any]] = Field(min_length=1)
     enabled: bool = True
@@ -158,6 +159,8 @@ class ScenarioOut(BaseModel):
     input: dict[str, Any]
     checks: list[dict[str, Any]]
     enabled: bool
+    source: str
+    library_version: str | None
     created_at: datetime
     updated_at: datetime
 
@@ -208,3 +211,50 @@ class GateOut(BaseModel):
     run_id: uuid.UUID | None = None
     evaluated_at: datetime | None = None
     failures: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class LibraryScenarioOut(BaseModel):
+    """One attack in the built-in corpus, as metadata (no need to run it to browse it)."""
+
+    key: str
+    category: str
+    severity: str
+    title: str
+    description: str
+    attack: str
+    requires_tools: bool
+
+
+class LibraryOut(BaseModel):
+    version: str
+    count: int
+    scenarios: list[LibraryScenarioOut]
+
+
+class ImportResult(BaseModel):
+    """Outcome of seeding an agent from the library."""
+
+    library_version: str
+    imported: int
+    skipped: int
+    scenarios: list[ScenarioOut]
+
+
+class CategoryRiskOut(BaseModel):
+    category: str
+    tested: int
+    failed: int
+    max_severity: str | None
+
+
+class RiskReport(BaseModel):
+    """The aggregated verdict across a library scan — the 'what did you find' answer."""
+
+    decision: str  # allowed | blocked | unknown (same vocabulary as the gate)
+    risk_level: str
+    reason: str
+    fingerprint: str
+    run_id: uuid.UUID | None = None
+    evaluated_at: datetime | None = None
+    categories: list[CategoryRiskOut] = Field(default_factory=list)
+    findings: list[dict[str, Any]] = Field(default_factory=list)

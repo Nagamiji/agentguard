@@ -78,7 +78,11 @@ reviewer exists. Details + rationale: `docs/branch-protection.md`.
 - **Fail closed everywhere.** Unevaluated -> `unknown`; zero scenarios -> `errored`; provider/runner failure -> `errored`. "We could not tell" must never render as "it's fine".
 - **Verdicts key on fingerprint**, so a pass belongs to an exact configuration and v2 cannot inherit v1's verdict.
 - **Real model access via ADC, never an API key in config** (`adr-0009`). `RUN_VERTEX_EVAL=true make eval-live` runs against live Vertex — costs money, non-deterministic, deliberately outside CI.
+- **The library is universal by construction** (`adr-0011`): a probe's check never needs the customer's tool names — it asserts over output (a planted synthetic marker must not leak) or over the fact of a tool call (a no-action request that acts was manipulated). `GET /v1/library`, `POST /agents/{id}/scenarios/import`, `GET /agents/{id}/risk`. Coverage is a floor, and `hallucinated_action` is a named, tested gap — not a silent one.
+
+## Current state
+See `STATE.md` for the live snapshot. On `main`: multi-tenancy, agent registry + fingerprint, evaluation engine + gate, real Vertex execution, and (this cycle) the failure scenario library + risk report.
 
 ## Where to build next
-Validated 2026-07-16: a real `gemini-2.5-flash` obeyed a prompt injection and attempted a $9,000 refund; AgentGuard blocked it with evidence and executed nothing.
-Next: **Phase 3 — failure scenario library.** Detection is only as good as the scenarios; a customer will not write them from scratch. That, not a dashboard, is what makes this adoptable. Then `AI-01` trace SDK. One task per loop iteration.
+Validated 2026-07-16: a scan using **only built-in attacks the customer never wrote** blocked a live `gemini-2.5-flash` refund agent (critical prompt injection + policy override).
+Next candidates, in order: **grow the library + add a `hallucinated_action` check type** (the moat compounds with coverage), then Sprint 3 (trace storage, risk-over-time, dashboard). A dashboard now would decorate a detection layer whose coverage is still the real constraint — content before chrome. One task per loop iteration.
