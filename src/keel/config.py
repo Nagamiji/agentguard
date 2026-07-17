@@ -38,6 +38,13 @@ class Settings(BaseSettings):
     # This is symmetric integrity, NOT third-party non-repudiation — see keel/signing.py.
     signing_secret: str = ""
 
+    # --- rate limiting ---
+    rate_limit_enabled: bool = True
+    rate_limit_scans_per_minute: int = 10
+    rate_limit_scans_burst: int = 3
+    rate_limit_general_per_minute: int = 100
+    rate_limit_general_burst: int = 20
+
 
 settings = Settings()
 

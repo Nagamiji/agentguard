@@ -15,6 +15,7 @@ def problem(
     type_: str = "about:blank",
     instance: str | None = None,
     request_id: str | None = None,
+    headers: dict[str, str] | None = None,
 ) -> JSONResponse:
     """Build an RFC 9457 Problem Details response."""
     body: dict[str, Any] = {"type": type_, "title": title, "status": status}
@@ -24,17 +25,24 @@ def problem(
         body["instance"] = instance
     if request_id:
         body["trace_id"] = request_id
-    return JSONResponse(status_code=status, content=body, media_type=PROBLEM_CONTENT_TYPE)
+    return JSONResponse(
+        status_code=status,
+        content=body,
+        media_type=PROBLEM_CONTENT_TYPE,
+        headers=headers,
+    )
 
 
 async def http_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     status = exc.status_code if isinstance(exc, StarletteHTTPException) else 500
     title = exc.detail if isinstance(exc, StarletteHTTPException) else "HTTP error"
+    headers = getattr(exc, "headers", None)
     return problem(
         status=status,
         title=str(title),
         instance=request.url.path,
         request_id=getattr(request.state, "request_id", None),
+        headers=headers,
     )
 
 

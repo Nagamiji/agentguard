@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from agentguard_cli.api import ApiClient, ApiError
+from agentguard_cli.report import build_report
 from agentguard_cli.sarif import build_sarif
 
 # Exit codes are the product's CI contract. Non-zero blocks a merge.
@@ -29,6 +30,7 @@ class Outcome:
     findings: list[dict[str, Any]] = field(default_factory=list)
     signature: str | None = None
     sarif: dict[str, Any] | None = None
+    report: dict[str, Any] | None = None
 
     def render(self) -> str:
         lines = [
@@ -77,6 +79,15 @@ def _error_outcome(command: str, message: str) -> Outcome:
     return Outcome(command=command, decision="error", exit_code=EXIT_ERROR, reason=message)
 
 
+def _safe(fn: Any) -> Any:
+    """Best-effort fetch for report context: a missing name/policy degrades the report, it
+    does not fail the verdict."""
+    try:
+        return fn()
+    except ApiError:
+        return None
+
+
 def do_fingerprint(manifest_path: str) -> Outcome:
     """Local — compute a manifest's fingerprint with no server call."""
     from keel.fingerprint import ManifestError, compute_fingerprint
@@ -116,7 +127,20 @@ def do_scan(
     except ApiError as exc:
         return _error_outcome("scan", str(exc))
 
-    return _outcome_from_gate("scan", gate, risk, agent, environment, fail_on, manifest_uri)
+    agent_name = (_safe(lambda: api.get_agent(agent)) or {}).get("name", agent)
+    policy = _safe(lambda: api.get_policy(agent, environment))
+    return _outcome_from_gate(
+        "scan",
+        gate,
+        risk,
+        agent,
+        environment,
+        fail_on,
+        manifest_uri,
+        agent_name=agent_name,
+        manifest=manifest,
+        effective_policy=policy,
+    )
 
 
 def do_report(
@@ -134,7 +158,23 @@ def do_report(
         risk = api.get_risk(agent, fingerprint)
     except ApiError as exc:
         return _error_outcome("report", str(exc))
-    return _outcome_from_gate("report", gate, risk, agent, environment, fail_on, manifest_uri)
+
+    agent_name = (_safe(lambda: api.get_agent(agent)) or {}).get("name", agent)
+    version = _safe(lambda: api.get_version_by_fingerprint(agent, fingerprint))
+    manifest = version.get("manifest") if version else None
+    policy = _safe(lambda: api.get_policy(agent, environment))
+    return _outcome_from_gate(
+        "report",
+        gate,
+        risk,
+        agent,
+        environment,
+        fail_on,
+        manifest_uri,
+        agent_name=agent_name,
+        manifest=manifest,
+        effective_policy=policy,
+    )
 
 
 def do_policy_check(api: ApiClient, *, agent: str, environment: str | None) -> Outcome:
@@ -168,6 +208,10 @@ def _outcome_from_gate(
     environment: str | None,
     fail_on: str,
     manifest_uri: str,
+    *,
+    agent_name: str = "",
+    manifest: dict[str, Any] | None = None,
+    effective_policy: dict[str, Any] | None = None,
 ) -> Outcome:
     decision = str(gate.get("decision", "unknown"))
     fingerprint = str(gate.get("fingerprint", ""))
@@ -181,6 +225,14 @@ def _outcome_from_gate(
         manifest_uri=manifest_uri,
         signature=gate.get("signature"),
     )
+    report = build_report(
+        agent_name=agent_name or agent,
+        manifest=manifest,
+        effective_policy=effective_policy,
+        gate=gate,
+        risk=risk,
+        environment=environment,
+    )
     return Outcome(
         command=command,
         decision=decision,
@@ -191,4 +243,118 @@ def _outcome_from_gate(
         findings=findings,
         signature=gate.get("signature"),
         sarif=sarif,
+        report=report,
     )
+
+
+def do_init(dir_path: str) -> int:
+    """Initialize configuration templates for AgentGuard."""
+    base = Path(dir_path)
+    try:
+        base.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        print(f"Could not create directory {dir_path}: {exc}")
+        return 10
+
+    manifest_content = {
+        "prompts": [
+            {
+                "role": "system",
+                "content": (
+                    "You are a customer support agent. You must be polite and help users, "
+                    "but you must never execute a refund greater than $100."
+                ),
+            }
+        ],
+        "tools": [
+            {
+                "name": "issue_refund",
+                "description": "Refund an order to the customer.",
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "amount": {
+                            "type": "number",
+                            "description": "The amount to refund in USD.",
+                        }
+                    },
+                    "required": ["amount"],
+                },
+            }
+        ],
+        "model": {"provider": "vertex", "id": "gemini-2.5-flash"},
+    }
+
+    policy_content = {
+        "scope_type": "organization",
+        "name": "Acme Support Bot Guardrails",
+        "rules": {
+            "max_tool_arg": [
+                {
+                    "tool": "issue_refund",
+                    "arg": "amount",
+                    "max": 100,
+                }
+            ]
+        },
+    }
+
+    workflow_content = """name: AgentGuard Scan
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  agentguard-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install AgentGuard CLI
+        run: |
+          pip install --index-url https://pypi.org/simple/ agentguard-cli
+
+      - name: Run AgentGuard Scan
+        env:
+          AGENTGUARD_API_URL: ${{ secrets.AGENTGUARD_API_URL }}
+          AGENTGUARD_API_KEY: ${{ secrets.AGENTGUARD_API_KEY }}
+        run: |
+          agentguard scan \\
+            --agent customer-support-bot \\
+            --manifest manifest.json \\
+            --environment prod \\
+            --html report.html \\
+            --sarif findings.sarif \\
+            --import-library
+"""
+
+    manifest_path = base / "manifest.json"
+    policy_path = base / "policy.json"
+    workflow_dir = base / ".github" / "workflows"
+    workflow_path = workflow_dir / "agentguard.yml"
+
+    try:
+        manifest_path.write_text(json.dumps(manifest_content, indent=2) + "\n")
+        print(f"Created template: {manifest_path.name}")
+
+        policy_path.write_text(json.dumps(policy_content, indent=2) + "\n")
+        print(f"Created template: {policy_path.name}")
+
+        workflow_dir.mkdir(parents=True, exist_ok=True)
+        workflow_path.write_text(workflow_content)
+        print(f"Created template: .github/workflows/{workflow_path.name}")
+
+    except OSError as exc:
+        print(f"Failed to write template files: {exc}")
+        return 10
+
+    return 0
