@@ -1,0 +1,6 @@
+name = "agentguard-edge"
+main = "src/index.js"
+compatibility_date = "2024-03-01"
+
+[vars]
+BACKEND_URL = "http://localhost:8000"
