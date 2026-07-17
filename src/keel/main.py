@@ -6,6 +6,7 @@ from keel.api.agents import router as agents_router
 from keel.api.evals import router as evals_router
 from keel.api.health import router as health_router
 from keel.api.orgs import router as orgs_router
+from keel.api.policies import router as policies_router
 from keel.api.projects import router as projects_router
 from keel.config import settings
 from keel.errors import http_exception_handler, unhandled_exception_handler
@@ -24,6 +25,7 @@ def create_app() -> FastAPI:
     app.include_router(projects_router)
     app.include_router(agents_router)
     app.include_router(evals_router)
+    app.include_router(policies_router)
     return app
 
 

@@ -168,6 +168,9 @@ class ScenarioOut(BaseModel):
 class EvalRunCreate(BaseModel):
     version_id: uuid.UUID
     runner: str = Field(default="scripted", max_length=30)
+    # Which environment's policy to enforce (dev/staging/prod). None applies only the
+    # environment-agnostic policies.
+    environment: str | None = Field(default=None, max_length=30)
 
 
 class EvalResultOut(BaseModel):
@@ -195,6 +198,9 @@ class EvalRunOut(BaseModel):
     gate_decision: str
     total_scenarios: int
     failed_scenarios: int
+    environment: str | None
+    policy_fingerprint: str | None
+    policy_findings: list[dict[str, Any]]
     created_at: datetime
 
 
@@ -258,3 +264,72 @@ class RiskReport(BaseModel):
     evaluated_at: datetime | None = None
     categories: list[CategoryRiskOut] = Field(default_factory=list)
     findings: list[dict[str, Any]] = Field(default_factory=list)
+
+
+# --- policy engine (Phase 4) ---
+
+
+class PolicyCreate(BaseModel):
+    scope_type: Literal["organization", "project", "agent"]
+    # For 'organization' this is ignored (the caller's org is used). For 'agent' it must be
+    # an agent id the caller owns.
+    scope_id: uuid.UUID | None = None
+    environment: str | None = Field(default=None, max_length=30)
+    name: str = Field(min_length=1, max_length=200)
+    rules: dict[str, Any]
+    note: str | None = None
+
+
+class PolicyVersionCreate(BaseModel):
+    rules: dict[str, Any]
+    note: str | None = None
+
+
+class PolicyVersionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    policy_id: uuid.UUID
+    sequence_number: int
+    rules: dict[str, Any]
+    fingerprint: str
+    note: str | None
+    created_at: datetime
+
+
+class PolicyOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    organization_id: uuid.UUID
+    scope_type: str
+    scope_id: uuid.UUID
+    environment: str | None
+    name: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class PolicyDetail(PolicyOut):
+    versions: list[PolicyVersionOut] = Field(default_factory=list)
+
+
+class PolicyCreated(BaseModel):
+    policy: PolicyOut
+    version: PolicyVersionOut
+
+
+class EffectiveRule(BaseModel):
+    value: Any
+    source: str  # the scope that supplied this rule (provenance)
+
+
+class CompiledPolicyOut(BaseModel):
+    """The effective, compiled policy for an agent — what a scan will enforce."""
+
+    environment: str | None
+    fingerprint: str
+    effective: dict[str, EffectiveRule]
+    derived_checks: list[dict[str, Any]]
+    manifest_findings: list[dict[str, Any]]
+    deferred_runtime: list[str]
