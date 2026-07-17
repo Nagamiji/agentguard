@@ -143,6 +143,34 @@ def create_run(
     """
     agent = _get_agent(agent_id, db)
 
+    # Billing boundary validation
+    from sqlalchemy import func
+
+    from keel.models import Organization, Plan, UsageEvent
+
+    org = db.get(Organization, org_id)
+    if org and org.plan_id:
+        plan = db.get(Plan, org.plan_id)
+    else:
+        plan = db.execute(select(Plan).where(Plan.name == "free")).scalar_one_or_none()
+
+    if plan:
+        scan_count = (
+            db.execute(
+                select(func.count(UsageEvent.id)).where(
+                    UsageEvent.organization_id == org_id,
+                    UsageEvent.event_type == "scan_executed",
+                )
+            ).scalar()
+            or 0
+        )
+        if plan.scan_limit >= 0 and scan_count >= plan.scan_limit:
+            msg = (
+                f"Scan limit reached ({plan.scan_limit}) for plan '{plan.name}'. "
+                "Please upgrade to run more scans."
+            )
+            raise HTTPException(status.HTTP_402_PAYMENT_REQUIRED, msg)
+
     version = db.execute(
         select(AgentVersion).where(
             AgentVersion.id == payload.version_id, AgentVersion.agent_id == agent.id
@@ -238,6 +266,21 @@ def create_run(
     )
     db.add(run)
     db.flush()  # need run.id before inserting results
+
+    # Record usage event
+    db.add(
+        UsageEvent(
+            organization_id=org_id,
+            event_type="scan_executed",
+            event_metadata={
+                "agent_id": str(agent.id),
+                "run_id": str(run.id),
+                "decision": str(gate_decision),
+                "total_scenarios": len(results),
+                "failed_scenarios": sum(1 for r in results if not r.passed),
+            },
+        )
+    )
 
     # Set run_id context variable
     set_run_id(str(run.id))

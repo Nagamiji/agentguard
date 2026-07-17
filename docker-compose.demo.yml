@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: keel
+      POSTGRES_PASSWORD: keel
+      POSTGRES_DB: keel
+    ports:
+      - "5435:5432"
+    volumes:
+      - ./docker/initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keel"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6375:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8099:8000"
+    environment:
+      KEEL_APP_ENV: dev
+      KEEL_DATABASE_URL: postgresql+psycopg://keel_app:keel_app@postgres:5432/keel
+      KEEL_MIGRATION_DATABASE_URL: postgresql+psycopg://keel:keel@postgres:5432/keel
+      KEEL_REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: >
+      sh -c "
+      alembic upgrade head &&
+      exec uvicorn keel.main:app --host 0.0.0.0 --port 8000
+      "

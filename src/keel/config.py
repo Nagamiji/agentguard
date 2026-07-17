@@ -10,6 +10,13 @@ class Settings(BaseSettings):
 
     app_env: str = "dev"
     log_level: str = "INFO"
+
+    # Secrets & Tokens
+    secret_key: str = ""
+    api_key_hash_secret: str = ""
+    cloudflare_token: str = ""
+    webhook_secret: str = ""
+
     # The APP connects as keel_app: a least-privilege, non-superuser role. This is
     # security-critical — superusers bypass Row-Level Security, which would silently
     # disable tenant isolation (see docker/initdb/01-app-role.sql).
