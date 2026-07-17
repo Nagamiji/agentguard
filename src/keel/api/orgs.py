@@ -10,6 +10,8 @@ from keel.schemas import (
     ApiKeyCreate,
     ApiKeyIssued,
     ApiKeyOut,
+    OnboardingInput,
+    OnboardingOut,
     OrgBootstrapOut,
     OrgCreate,
     OrgOut,
@@ -84,3 +86,48 @@ def revoke_key(key_id: uuid.UUID, org_id: AdminOrg, db: DbSession) -> Response:
         api_key.revoked_at = datetime.now(UTC)
         db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/onboarding", response_model=OnboardingOut, status_code=status.HTTP_201_CREATED)
+def onboard_customer(payload: OnboardingInput, db: DbSession) -> OnboardingOut:
+    """Self-serve customer onboarding: provisions an organization and credentials."""
+    # 1. Create Organization
+    org = Organization(name=payload.organization_name)
+    db.add(org)
+    db.flush()
+
+    # 2. Link default "free" plan
+    from keel.models import Plan
+
+    free_plan = db.execute(select(Plan).where(Plan.name == "free")).scalar_one_or_none()
+    if free_plan:
+        org.plan_id = free_plan.id
+
+    # 3. Create initial API key
+    full_key, prefix, key_hash = generate_api_key()
+    api_key = ApiKey(
+        organization_id=org.id,
+        name="onboarding-key",
+        prefix=prefix,
+        key_hash=key_hash,
+        scopes=["*"],
+    )
+    db.add(api_key)
+    db.commit()
+
+    next_steps = (
+        "Welcome to AgentGuard! To integrate security scans into your workflow:\n"
+        "1. Install the AgentGuard CLI: pip install agentguard-cli\n"
+        "2. Export your credentials in your terminal or CI environment:\n"
+        f"   export AGENTGUARD_API_KEY={full_key}\n"
+        "3. Scaffold your configuration in your repository root:\n"
+        "   agentguard init\n"
+        "4. Run a security scan:\n"
+        "   agentguard scan --agent-slug [agent-name]"
+    )
+
+    return OnboardingOut(
+        organization_id=org.id,
+        api_key=full_key,
+        next_steps=next_steps,
+    )

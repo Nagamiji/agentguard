@@ -1,3 +1,6 @@
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -15,9 +18,22 @@ from keel.logging import configure_logging
 from keel.middleware import ContextMiddleware
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    if settings.app_env == "production":
+        missing = []
+        if not settings.secret_key:
+            missing.append("KEEL_SECRET_KEY")
+        if not settings.api_key_hash_secret:
+            missing.append("KEEL_API_KEY_HASH_SECRET")
+        if missing:
+            raise RuntimeError(f"Missing critical production configurations: {', '.join(missing)}")
+    yield
+
+
 def create_app() -> FastAPI:
     configure_logging(settings.log_level)
-    app = FastAPI(title="Keel Platform", version=__version__)
+    app = FastAPI(title="Keel Platform", version=__version__, lifespan=lifespan)
     app.add_middleware(ContextMiddleware)
     app.add_exception_handler(StarletteHTTPException, http_exception_handler)
     app.add_exception_handler(Exception, unhandled_exception_handler)

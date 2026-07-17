@@ -50,6 +50,33 @@ def _get_agent(agent_id: uuid.UUID, db: DbSession) -> Agent:
 
 @router.post("/agents", response_model=AgentOut, status_code=status.HTTP_201_CREATED)
 def create_agent(payload: AgentCreate, org_id: WriteOrg, db: DbSession) -> AgentOut:
+    # Plan validation
+    from sqlalchemy import func
+
+    from keel.models import Organization, Plan
+
+    org = db.get(Organization, org_id)
+    if org and org.plan_id:
+        plan = db.get(Plan, org.plan_id)
+    else:
+        plan = db.execute(select(Plan).where(Plan.name == "free")).scalar_one_or_none()
+
+    if plan:
+        agent_count = (
+            db.execute(
+                select(func.count(Agent.id)).where(
+                    Agent.organization_id == org_id, Agent.status == "active"
+                )
+            ).scalar()
+            or 0
+        )
+        if plan.agent_limit >= 0 and agent_count >= plan.agent_limit:
+            msg = (
+                f"Agent limit reached ({plan.agent_limit}) for plan '{plan.name}'. "
+                "Please upgrade to register more agents."
+            )
+            raise HTTPException(status.HTTP_402_PAYMENT_REQUIRED, msg)
+
     slug = payload.slug or _slugify(payload.name)
     existing = db.execute(select(Agent).where(Agent.slug == slug)).scalar_one_or_none()
     if existing is not None:

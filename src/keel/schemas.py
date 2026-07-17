@@ -11,6 +11,16 @@ class OrgCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
 
 
+class OnboardingInput(BaseModel):
+    organization_name: str = Field(min_length=1, max_length=200)
+
+
+class OnboardingOut(BaseModel):
+    organization_id: uuid.UUID
+    api_key: str = Field(description="Shown once. Store it now — it cannot be retrieved later.")
+    next_steps: str
+
+
 class OrgOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

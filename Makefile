@@ -1,20 +1,21 @@
-.PHONY: help install hooks up down migrate dev worker test lint typecheck check fmt protect usage eval-live status
+.PHONY: help install hooks up down migrate dev worker test lint typecheck check fmt protect usage eval-live status demo-cloud
 
 help:
-	@echo "install   - create venv + install dev deps"
-	@echo "hooks     - install pre-commit hooks (incl. commit-msg)"
-	@echo "up/down   - start/stop local Postgres+Redis (docker compose)"
-	@echo "migrate   - apply database migrations (alembic upgrade head)"
-	@echo "dev       - run the API (uvicorn, reload)"
-	@echo "worker    - run the worker"
-	@echo "test      - pytest"
-	@echo "lint      - ruff check + format check"
-	@echo "typecheck - mypy --strict"
-	@echo "check     - lint + typecheck + test (what CI runs)"
-	@echo "protect   - apply GitHub branch protection to main (needs gh admin auth)"
-	@echo "usage     - record today's token usage to reports/usage/ (NOTE=\"...\")"
-	@echo "eval-live - run the REAL Vertex evaluation (costs money; needs gcloud ADC)"
-	@echo "status    - check current development, testing, and release status"
+	@echo "install    - create venv + install dev deps"
+	@echo "hooks      - install pre-commit hooks (incl. commit-msg)"
+	@echo "up/down    - start/stop local Postgres+Redis (docker compose)"
+	@echo "migrate    - apply database migrations (alembic upgrade head)"
+	@echo "dev        - run the API (uvicorn, reload)"
+	@echo "worker     - run the worker"
+	@echo "test       - pytest"
+	@echo "lint       - ruff check + format check"
+	@echo "typecheck  - mypy --strict"
+	@echo "check      - lint + typecheck + test (what CI runs)"
+	@echo "protect    - apply GitHub branch protection to main (needs gh admin auth)"
+	@echo "usage      - record today's token usage to reports/usage/ (NOTE=\"...\")"
+	@echo "eval-live  - run the REAL Vertex evaluation (costs money; needs gcloud ADC)"
+	@echo "status     - check current development, testing, and release status"
+	@echo "demo-cloud - run the fully containerised multi-tenant SaaS demo flow"
 
 install:
 	python3 -m venv .venv && . .venv/bin/activate && pip install -U pip && pip install -e ".[dev]"
@@ -83,3 +84,6 @@ status:
 	@printf "Security:      "
 	@(. .venv/bin/activate && pip-audit --skip-editable >/dev/null 2>&1 && echo "PASS") || echo "FAIL"
 	@echo "Release:       READY"
+
+demo-cloud:
+	bash scripts/demo-cloud.sh
