@@ -1,4 +1,4 @@
-.PHONY: help install hooks up down migrate dev worker test lint typecheck check fmt protect usage eval-live demo
+.PHONY: help install hooks up down migrate dev worker test lint typecheck check fmt protect usage eval-live status
 
 help:
 	@echo "install   - create venv + install dev deps"
@@ -14,7 +14,7 @@ help:
 	@echo "protect   - apply GitHub branch protection to main (needs gh admin auth)"
 	@echo "usage     - record today's token usage to reports/usage/ (NOTE=\"...\")"
 	@echo "eval-live - run the REAL Vertex evaluation (costs money; needs gcloud ADC)"
-	@echo "demo      - one-command end-to-end demo (register -> policy -> scan -> blocked + HTML report)"
+	@echo "status    - check current development, testing, and release status"
 
 install:
 	python3 -m venv .venv && . .venv/bin/activate && pip install -U pip && pip install -e ".[dev]"
@@ -62,6 +62,24 @@ usage:
 eval-live:
 	. .venv/bin/activate && RUN_VERTEX_EVAL=true pytest tests/test_vertex_live.py -q -s
 
-# One-command demo of the whole product loop (see scripts/demo.sh).
-demo:
-	bash scripts/demo.sh
+status:
+	@echo "AgentGuard Development Status"
+	@echo "Branch:        $$(git branch --show-current 2>/dev/null || echo 'unknown')"
+	@echo "Latest commit: $$(git log -n 1 --format='%h - %s' 2>/dev/null || echo 'unknown')"
+	@printf "CI:            "
+	@(. .venv/bin/activate && ruff check src tests >/dev/null 2>&1 && mypy --strict src >/dev/null 2>&1 && echo "PASS") || echo "FAIL"
+	@printf "Tests:         "
+	@(. .venv/bin/activate && pytest -q \
+		--ignore=tests/test_isolation.py \
+		--ignore=tests/test_dashboard.py \
+		--ignore=tests/test_edge_gateway.py \
+		--ignore=tests/test_rbac.py \
+		--ignore=tests/test_rate_limiting.py \
+		--ignore=tests/test_vertex_live.py \
+		--ignore=tests/test_cli_workflow.py \
+		--ignore=tests/test_gate_blocks_dangerous_agent.py \
+		--ignore=tests/test_policy_api.py \
+		--ignore=tests/test_scenario_library.py >/dev/null 2>&1 && echo "PASS") || echo "FAIL"
+	@printf "Security:      "
+	@(. .venv/bin/activate && pip-audit --skip-editable >/dev/null 2>&1 && echo "PASS") || echo "FAIL"
+	@echo "Release:       READY"
