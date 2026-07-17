@@ -241,6 +241,80 @@ class EvalRun(Base):
     gate_decision: Mapped[str] = mapped_column(String(20), nullable=False)
     total_scenarios: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     failed_scenarios: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # Policy audit: which environment + effective policy (by fingerprint) this run enforced,
+    # and any static policy violations found against the manifest.
+    environment: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    policy_fingerprint: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    policy_findings: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, nullable=False, default=list
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, nullable=False
+    )
+
+
+class Policy(Base):
+    """A policy container: what a scope (org/project/agent) is allowed to do, per environment.
+
+    Stable identity; the rules live in immutable PolicyVersions. Mirrors the agent/version
+    split so history is append-only and auditable.
+    """
+
+    __tablename__ = "policies"
+    __table_args__ = (
+        UniqueConstraint(
+            "organization_id", "scope_type", "scope_id", "environment", name="uq_policies_scope_env"
+        ),
+        CheckConstraint(
+            "scope_type IN ('organization', 'project', 'agent')", name="ck_policies_scope_type"
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    organization_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    scope_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    scope_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    environment: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, onupdate=_utcnow, nullable=False
+    )
+
+
+class PolicyVersion(Base):
+    """An immutable snapshot of a policy's rules. Never updated — this is the audit history."""
+
+    __tablename__ = "policy_versions"
+    __table_args__ = (
+        UniqueConstraint("policy_id", "fingerprint", name="uq_policy_versions_fingerprint"),
+        UniqueConstraint("policy_id", "sequence_number", name="uq_policy_versions_seq"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    organization_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    policy_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("policies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    sequence_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    rules: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utcnow, nullable=False
     )

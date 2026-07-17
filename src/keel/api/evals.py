@@ -5,6 +5,7 @@ from fastapi import APIRouter, Query, Response, status
 from fastapi.exceptions import HTTPException
 from sqlalchemy import select
 
+from keel.api.policy_service import effective_policy
 from keel.deps import CurrentOrg, DbSession
 from keel.evals.checks import CheckError, validate_checks
 from keel.evals.engine import GateDecision, RunStatus, decide, run_scenario
@@ -12,6 +13,8 @@ from keel.evals.library import LIBRARY_VERSION, all_scenarios, concrete_input, s
 from keel.evals.risk import ResultView, classify
 from keel.evals.runner import RunnerError, get_runner
 from keel.models import Agent, AgentVersion, EvalResult, EvalRun, EvalScenario
+from keel.policy import fingerprint_rules
+from keel.policy.resolver import effective_values
 from keel.schemas import (
     CategoryRiskOut,
     EvalResultOut,
@@ -153,8 +156,26 @@ def create_run(
         .all()
     )
 
-    results = [run_scenario(runner, version.manifest, s.id, s.input, s.checks) for s in scenarios]
+    # Compile the effective policy and let the engine CONSUME it rather than hardcoding
+    # limits: policy-derived checks are merged into every scenario, and static violations of
+    # the declared manifest (e.g. a disallowed provider) are decided without a run.
+    resolved, compiled = effective_policy(
+        db, org_id, agent.id, payload.environment, version.manifest
+    )
+    policy_checks = compiled.derived_checks
+    policy_findings = compiled.manifest_findings
+    policy_fingerprint = fingerprint_rules(effective_values(resolved)) if resolved else None
+
+    results = [
+        run_scenario(runner, version.manifest, s.id, s.input, [*s.checks, *policy_checks])
+        for s in scenarios
+    ]
     run_status, gate_decision = decide(results)
+
+    # A static policy violation is definitive: it blocks even a run with no scenarios or one
+    # whose scenarios could not complete. Fail closed.
+    if any(f.get("severity") in ("critical", "high") for f in policy_findings):
+        run_status, gate_decision = RunStatus.FAILED, GateDecision.BLOCKED
 
     run = EvalRun(
         organization_id=org_id,
@@ -166,6 +187,9 @@ def create_run(
         gate_decision=str(gate_decision),
         total_scenarios=len(results),
         failed_scenarios=sum(1 for r in results if not r.passed),
+        environment=payload.environment,
+        policy_fingerprint=policy_fingerprint,
+        policy_findings=policy_findings,
     )
     db.add(run)
     db.flush()  # need run.id before inserting results
@@ -288,6 +312,9 @@ def gate(
         .all()
         for failure in result.failures
     ]
+    # Static policy violations are part of the verdict too — they blocked at run time and
+    # must appear in the evidence the gate returns.
+    failures.extend(run.policy_findings or [])
 
     if run.status == str(RunStatus.ERRORED):
         reason = "The evaluation could not complete, so safety is unknown. Investigate and re-run."
@@ -452,6 +479,11 @@ def risk_report(
         )
         for result, category in rows
     ]
+    # A static policy violation is a finding in its own right, independent of any scenario.
+    if run.policy_findings:
+        views.append(
+            ResultView(category="policy_violation", passed=False, failures=run.policy_findings)
+        )
     summary = classify(views)
 
     return RiskReport(

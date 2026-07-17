@@ -3,7 +3,7 @@
 A living snapshot of where the platform is. Dated narrative lives in `reports/`; this is the
 "where are we right now" page. Updated at the end of each cycle.
 
-_Last updated: 2026-07-16 (end of Phase 3)._
+_Last updated: 2026-07-17 (end of Phase 4)._
 
 ## The one-line claim
 
@@ -23,9 +23,11 @@ Reproduce it: `gcloud auth application-default login && RUN_VERTEX_EVAL=true mak
 | Deterministic evaluation engine + deploy gate | `keel/evals/{checks,engine,runner}.py`, migration 0003 | `tests/test_gate_blocks_dangerous_agent.py` |
 | Real model execution (Vertex/Gemini), tool interception, evidence | `keel/evals/{live,providers}`, ADR 0009 | `tests/test_vertex_live.py` (live) |
 | **Failure scenario library + risk report** | `keel/evals/{library,taxonomy,risk}.py`, migration 0004, ADR 0011 | `tests/test_library.py`, `test_risk.py`, `test_scenario_library.py`, live scan |
+| **Policy engine** (scopes, precedence, immutable versions, compiler) | `keel/policy/`, `keel/api/policies.py`, migration 0005, ADR 0012 | `tests/test_policy.py`, `test_policy_api.py`, live policy block |
 
 The gate is **fail-closed** throughout: unevaluated, zero-scenario, and errored states are
-`unknown`/`errored`, never a pass.
+`unknown`/`errored`, never a pass. Limits are **not hardcoded** — the engine compiles them
+from policy (`max_tool_arg: $100` → a `tool_arg_limit` check applied to every scan).
 
 ## Product flow (what a customer does)
 
@@ -53,18 +55,27 @@ built, and a weak probe would erode trust in the gate.
    eliminate it.
 3. **One model provider.** Portability is a design property (a Protocol), not yet tested
    (ADR 0010).
-4. **The merge gate is advisory.** GitHub branch protection needs a paid plan on this private
+4. **Policy override can loosen a ceiling.** Precedence is lower-scope-wins, so an agent
+   policy can loosen an org limit. Visible via provenance today; a `locked` flag is the
+   future mitigation (ADR 0012).
+5. **Project-scoped policies are unimplemented** — agents aren't linked to projects yet.
+6. **Runtime policy rules are declared, not enforced** — rate limits, geo, token budget,
+   approvals are runtime facts a deploy gate can't check; they need a runtime layer.
+7. **The merge gate is advisory.** GitHub branch protection needs a paid plan on this private
    repo; a local pre-push hook stands in. `docs/branch-protection.md`.
 
 ## Delivery state
 
-- `main`: DO-01 → BE-01 → CI gate (#1) → BE-02 (#2) → EVAL-01 (#3) → EVAL-02 (#4).
-- Open: **Phase 3 (scenario library)** — PR to be opened this cycle.
+- `main`: DO-01 → BE-01 → CI gate (#1) → BE-02 (#2) → EVAL-01 (#3) → EVAL-02 (#4) → Phase 3 (#5).
+- Open: **Phase 4 (policy engine)** — PR to be opened this cycle.
 - Every merge is a human gate; nothing auto-merges.
 
 ## Next
 
-**Recommended:** grow the library (the moat compounds with coverage) and add a
-`hallucinated_action` check type. **Then** Sprint 3 (trace storage, risk scoring over time,
-dashboard). A dashboard now would visualise a detection layer whose coverage is still the real
-constraint — content first, chrome later.
+**Phase 5 — the deployment gate**: a GitHub Action + CLI that calls `GET /agents/{id}/gate`
+(and `/risk`) in CI, blocks the merge on `blocked`, and emits SARIF so findings show up in the
+PR. This is what turns the platform into a deploy-time control a developer actually feels.
+Everything for it now exists server-side; Phase 5 is the client + CI surface. **Then**: the
+policy `locked` ceiling, an `agent.project_id` link (unlocks project scope), and growing the
+library. A dashboard remains chrome over a detection layer whose coverage is still the real
+constraint.
