@@ -33,6 +33,11 @@ class Settings(BaseSettings):
     eval_max_turns: int = 6
     eval_timeout_seconds: int = 60
 
+    # HMAC key for signing gate verdicts (Phase 5). Empty = signing disabled. Lets a party
+    # that trusts this server and holds the key confirm a verdict was not tampered with.
+    # This is symmetric integrity, NOT third-party non-repudiation — see keel/signing.py.
+    signing_secret: str = ""
+
 
 settings = Settings()
 
