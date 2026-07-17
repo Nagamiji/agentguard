@@ -99,6 +99,11 @@ def test_blocked_deployment_exits_nonzero_with_sarif() -> None:
     # SARIF has an error-level result an engineer can see in the PR.
     results = outcome.sarif["runs"][0]["results"]  # type: ignore[index]
     assert any(r["level"] == "error" and r["ruleId"] == "tool_arg_limit" for r in results)
+    # The customer-facing report is populated, with policy provenance + a remediation.
+    assert outcome.report is not None
+    assert outcome.report["decision"] == "blocked"
+    assert outcome.report["policy"], "the report should show the effective policy"
+    assert outcome.report["findings"][0]["recommendation"]
 
 
 def test_safe_deployment_exits_zero() -> None:

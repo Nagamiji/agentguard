@@ -1,4 +1,4 @@
-.PHONY: help install hooks up down migrate dev worker test lint typecheck check fmt protect usage eval-live
+.PHONY: help install hooks up down migrate dev worker test lint typecheck check fmt protect usage eval-live demo
 
 help:
 	@echo "install   - create venv + install dev deps"
@@ -14,6 +14,7 @@ help:
 	@echo "protect   - apply GitHub branch protection to main (needs gh admin auth)"
 	@echo "usage     - record today's token usage to reports/usage/ (NOTE=\"...\")"
 	@echo "eval-live - run the REAL Vertex evaluation (costs money; needs gcloud ADC)"
+	@echo "demo      - one-command end-to-end demo (register -> policy -> scan -> blocked + HTML report)"
 
 install:
 	python3 -m venv .venv && . .venv/bin/activate && pip install -U pip && pip install -e ".[dev]"
@@ -60,3 +61,7 @@ usage:
 #   make eval-live
 eval-live:
 	. .venv/bin/activate && RUN_VERTEX_EVAL=true pytest tests/test_vertex_live.py -q -s
+
+# One-command demo of the whole product loop (see scripts/demo.sh).
+demo:
+	bash scripts/demo.sh

@@ -68,3 +68,6 @@ class ApiClient:
 
     def get_version_by_fingerprint(self, agent: str, fingerprint: str) -> dict[str, Any]:
         return self._request("get", f"/v1/agents/{agent}/versions/{fingerprint}")
+
+    def get_agent(self, agent: str) -> dict[str, Any]:
+        return self._request("get", f"/v1/agents/{agent}")

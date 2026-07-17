@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from agentguard_cli.api import ApiClient, ApiError
+from agentguard_cli.report import build_report
 from agentguard_cli.sarif import build_sarif
 
 # Exit codes are the product's CI contract. Non-zero blocks a merge.
@@ -29,6 +30,7 @@ class Outcome:
     findings: list[dict[str, Any]] = field(default_factory=list)
     signature: str | None = None
     sarif: dict[str, Any] | None = None
+    report: dict[str, Any] | None = None
 
     def render(self) -> str:
         lines = [
@@ -77,6 +79,15 @@ def _error_outcome(command: str, message: str) -> Outcome:
     return Outcome(command=command, decision="error", exit_code=EXIT_ERROR, reason=message)
 
 
+def _safe(fn: Any) -> Any:
+    """Best-effort fetch for report context: a missing name/policy degrades the report, it
+    does not fail the verdict."""
+    try:
+        return fn()
+    except ApiError:
+        return None
+
+
 def do_fingerprint(manifest_path: str) -> Outcome:
     """Local — compute a manifest's fingerprint with no server call."""
     from keel.fingerprint import ManifestError, compute_fingerprint
@@ -116,7 +127,20 @@ def do_scan(
     except ApiError as exc:
         return _error_outcome("scan", str(exc))
 
-    return _outcome_from_gate("scan", gate, risk, agent, environment, fail_on, manifest_uri)
+    agent_name = (_safe(lambda: api.get_agent(agent)) or {}).get("name", agent)
+    policy = _safe(lambda: api.get_policy(agent, environment))
+    return _outcome_from_gate(
+        "scan",
+        gate,
+        risk,
+        agent,
+        environment,
+        fail_on,
+        manifest_uri,
+        agent_name=agent_name,
+        manifest=manifest,
+        effective_policy=policy,
+    )
 
 
 def do_report(
@@ -134,7 +158,23 @@ def do_report(
         risk = api.get_risk(agent, fingerprint)
     except ApiError as exc:
         return _error_outcome("report", str(exc))
-    return _outcome_from_gate("report", gate, risk, agent, environment, fail_on, manifest_uri)
+
+    agent_name = (_safe(lambda: api.get_agent(agent)) or {}).get("name", agent)
+    version = _safe(lambda: api.get_version_by_fingerprint(agent, fingerprint))
+    manifest = version.get("manifest") if version else None
+    policy = _safe(lambda: api.get_policy(agent, environment))
+    return _outcome_from_gate(
+        "report",
+        gate,
+        risk,
+        agent,
+        environment,
+        fail_on,
+        manifest_uri,
+        agent_name=agent_name,
+        manifest=manifest,
+        effective_policy=policy,
+    )
 
 
 def do_policy_check(api: ApiClient, *, agent: str, environment: str | None) -> Outcome:
@@ -168,6 +208,10 @@ def _outcome_from_gate(
     environment: str | None,
     fail_on: str,
     manifest_uri: str,
+    *,
+    agent_name: str = "",
+    manifest: dict[str, Any] | None = None,
+    effective_policy: dict[str, Any] | None = None,
 ) -> Outcome:
     decision = str(gate.get("decision", "unknown"))
     fingerprint = str(gate.get("fingerprint", ""))
@@ -181,6 +225,14 @@ def _outcome_from_gate(
         manifest_uri=manifest_uri,
         signature=gate.get("signature"),
     )
+    report = build_report(
+        agent_name=agent_name or agent,
+        manifest=manifest,
+        effective_policy=effective_policy,
+        gate=gate,
+        risk=risk,
+        environment=environment,
+    )
     return Outcome(
         command=command,
         decision=decision,
@@ -191,4 +243,5 @@ def _outcome_from_gate(
         findings=findings,
         signature=gate.get("signature"),
         sarif=sarif,
+        report=report,
     )

@@ -3,7 +3,7 @@
 A living snapshot of where the platform is. Dated narrative lives in `reports/`; this is the
 "where are we right now" page. Updated at the end of each cycle.
 
-_Last updated: 2026-07-17 (end of Phase 5)._
+_Last updated: 2026-07-17 (end of Phase 6.1)._
 
 ## The one-line claim
 
@@ -25,6 +25,7 @@ Reproduce it: `gcloud auth application-default login && RUN_VERTEX_EVAL=true mak
 | **Failure scenario library + risk report** | `keel/evals/{library,taxonomy,risk}.py`, migration 0004, ADR 0011 | `tests/test_library.py`, `test_risk.py`, `test_scenario_library.py`, live scan |
 | **Policy engine** (scopes, precedence, immutable versions, compiler) | `keel/policy/`, `keel/api/policies.py`, migration 0005, ADR 0012 | `tests/test_policy.py`, `test_policy_api.py`, live policy block |
 | **Deployment gate** (CLI + GitHub Action + SARIF, signed verdicts) | `src/agentguard_cli/`, `keel/signing.py`, `.github/actions/agentguard/`, ADR 0013 | `tests/test_cli.py`, `test_cli_workflow.py`, `test_signing.py`, real subprocess |
+| **Demo experience + report** (HTML/JSON report, remediation, `make demo`) | `src/agentguard_cli/report.py`, `scripts/demo.sh`, ADR 0014 | `tests/test_report.py`, real `make demo` |
 
 The gate is **fail-closed** throughout: unevaluated, zero-scenario, and errored states are
 `unknown`/`errored`, never a pass. Limits are **not hardcoded** — the engine compiles them
@@ -67,19 +68,19 @@ built, and a weak probe would erode trust in the gate.
 
 ## Delivery state
 
-- `main`: DO-01 → BE-01 → CI gate (#1) → BE-02 (#2) → EVAL-01 (#3) → EVAL-02 (#4) → Phase 3 (#5) → Phase 4 (#6).
-- Open: **Phase 5 (deployment gate)** — PR to be opened this cycle.
+- `main`: … EVAL-02 (#4) → Phase 3 (#5) → Phase 4 (#6) → Phase 5 (#7).
+- Open: **Phase 6.1 (demo experience + report)** — PR to be opened this cycle.
 - Every merge is a human gate; nothing auto-merges.
 
-The product loop is now closed: **register agent → scan (real model) → policy-aware gate →
-`agentguard scan` in CI exits non-zero + SARIF → merge blocked.**
+The loop is closed and now demonstrable: **`make demo` → register → policy → scan → BLOCKED +
+HTML report**, and in CI `agentguard scan` exits non-zero + SARIF.
 
-## Next
+## Next (from `docs/production-readiness.md`)
 
-The wedge exists; the next items make it adoptable and harder to bypass:
-- **Publish the CLI** to a package index (the Action currently needs an `install-command`).
-- **Async scans / push mode (webhooks)** for long real-model runs and event-driven triggers.
-- **Asymmetric verdict signing** (Ed25519) for third-party attestation — HMAC is symmetric today.
-- **Policy `locked` ceiling** and an **`agent.project_id` link** (unlocks project-scoped policies).
-- **Grow the attack library** — coverage is still the real constraint; a dashboard is chrome
-  over it until then.
+The wedge exists and is demoable; the gaps are operational, and named honestly:
+- **Observability** (metrics + tracing + alerting) — the top gap for unattended operation.
+- **RBAC / scoped API keys** — before multiple teams share an org.
+- **Rate limiting / cost controls** — bound what one org can spend.
+- Then: publish the CLI, async/webhooks, asymmetric signing, policy `locked` ceiling,
+  `agent.project_id` link, and growing the attack library. A hosted dashboard stays chrome
+  until coverage — not visualization — is the bottleneck.
