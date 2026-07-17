@@ -120,6 +120,12 @@ class FakeApi:
     def get_risk(self, agent: str, fingerprint: str) -> dict[str, Any]:
         return self._risk
 
+    def get_agent(self, agent: str) -> dict[str, Any]:
+        return {"name": "test-agent"}
+
+    def get_policy(self, agent: str, environment: str | None) -> dict[str, Any]:
+        return {"effective": {}, "deferred_runtime": []}
+
 
 def _scan(**api_kwargs: Any) -> Any:
     api = FakeApi(**api_kwargs)

@@ -37,6 +37,8 @@ def _build_parser() -> argparse.ArgumentParser:
         p.add_argument("--agent", required=True, help="agent id or slug")
         p.add_argument("--environment", default=None, help="dev/staging/prod")
         p.add_argument("--sarif", default=None, help="write SARIF findings to this path")
+        p.add_argument("--html", default=None, help="write a self-contained HTML report")
+        p.add_argument("--report-json", default=None, help="write the structured JSON report")
         p.add_argument("--json", action="store_true", help="print the verdict as JSON")
         p.add_argument(
             "--fail-on",
@@ -91,6 +93,20 @@ def _emit(outcome: Outcome, args: argparse.Namespace) -> None:
     if sarif_path and outcome.sarif is not None:
         Path(sarif_path).write_text(json.dumps(outcome.sarif, indent=2))
         print(f"wrote SARIF -> {sarif_path}", file=sys.stderr)
+
+    html_path = getattr(args, "html", None)
+    if html_path and outcome.report is not None:
+        from agentguard_cli.report import render_html
+
+        Path(html_path).write_text(render_html(outcome.report))
+        print(f"wrote HTML report -> {html_path}", file=sys.stderr)
+
+    report_json_path = getattr(args, "report_json", None)
+    if report_json_path and outcome.report is not None:
+        from agentguard_cli.report import render_json
+
+        Path(report_json_path).write_text(render_json(outcome.report))
+        print(f"wrote JSON report -> {report_json_path}", file=sys.stderr)
 
 
 def main(argv: list[str] | None = None) -> int:
