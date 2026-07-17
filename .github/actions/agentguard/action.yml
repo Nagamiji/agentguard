@@ -1,0 +1,100 @@
+name: "AgentGuard Deployment Gate"
+description: "Evaluate an AI agent and block unsafe deployments before they merge."
+author: "AgentGuard"
+
+# Usage (in a customer repo's workflow):
+#
+#   permissions:
+#     contents: read
+#     security-events: write   # to upload SARIF
+#   jobs:
+#     agentguard:
+#       runs-on: ubuntu-latest
+#       steps:
+#         - uses: actions/checkout@v4
+#         - uses: Nagamiji/agentguard/.github/actions/agentguard@main
+#           with:
+#             api-url: https://agentguard.your-company.com
+#             api-key: ${{ secrets.AGENTGUARD_API_KEY }}
+#             agent: customer-support
+#             manifest: agents/support/manifest.json
+#             environment: production
+#             runner: vertex          # real model evaluation
+#             fail-on: unknown        # block on blocked + unknown (fail closed)
+#
+# The step exits non-zero when the deploy must be blocked — that is what fails the job.
+
+inputs:
+  api-url:
+    description: "AgentGuard API base URL"
+    required: true
+  api-key:
+    description: "AgentGuard API key (store as a repo secret)"
+    required: true
+  agent:
+    description: "Agent id or slug"
+    required: true
+  manifest:
+    description: "Path to the agent manifest JSON"
+    required: true
+    default: "agent-manifest.json"
+  environment:
+    description: "Deployment environment (dev/staging/prod) — selects the policy"
+    required: false
+    default: ""
+  runner:
+    description: "Evaluation runner: scripted or vertex"
+    required: false
+    default: "scripted"
+  import-library:
+    description: "Seed the built-in attack library before scanning"
+    required: false
+    default: "false"
+  fail-on:
+    description: "Which verdicts fail the job: blocked | unknown | any"
+    required: false
+    default: "unknown"
+  sarif:
+    description: "Path to write SARIF findings"
+    required: false
+    default: "agentguard.sarif"
+  install-command:
+    description: "How to install the CLI. Override until it is on your package index."
+    required: false
+    default: "pip install agentguard"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+
+    - name: Install AgentGuard CLI
+      shell: bash
+      run: ${{ inputs.install-command }}
+
+    - name: Run the deployment gate
+      shell: bash
+      env:
+        AGENTGUARD_API_KEY: ${{ inputs.api-key }}
+      run: |
+        set -euo pipefail
+        args=(scan
+          --api-url "${{ inputs.api-url }}"
+          --agent "${{ inputs.agent }}"
+          --manifest "${{ inputs.manifest }}"
+          --runner "${{ inputs.runner }}"
+          --fail-on "${{ inputs.fail-on }}"
+          --sarif "${{ inputs.sarif }}")
+        if [ -n "${{ inputs.environment }}" ]; then args+=(--environment "${{ inputs.environment }}"); fi
+        if [ "${{ inputs.import-library }}" = "true" ]; then args+=(--import-library); fi
+        # A non-zero exit here fails the job and blocks the merge — the whole point.
+        agentguard "${args[@]}"
+
+    - name: Upload SARIF to the Security tab
+      if: always() # upload findings even when the gate failed the job
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: ${{ inputs.sarif }}

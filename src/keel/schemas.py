@@ -217,6 +217,8 @@ class GateOut(BaseModel):
     run_id: uuid.UUID | None = None
     evaluated_at: datetime | None = None
     failures: list[dict[str, Any]] = Field(default_factory=list)
+    # HMAC over (fingerprint, decision, run_id, evaluated_at) when signing is enabled.
+    signature: str | None = None
 
 
 class LibraryScenarioOut(BaseModel):

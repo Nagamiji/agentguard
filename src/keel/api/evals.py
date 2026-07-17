@@ -29,6 +29,7 @@ from keel.schemas import (
     ScenarioCreate,
     ScenarioOut,
 )
+from keel.signing import sign_verdict
 
 router = APIRouter(prefix="/v1", tags=["evals"])
 
@@ -301,6 +302,7 @@ def gate(
                 "This configuration has never been evaluated. Run an evaluation before "
                 "deploying it."
             ),
+            signature=sign_verdict(fingerprint, str(GateDecision.UNKNOWN)),
         )
 
     failures = [
@@ -338,6 +340,7 @@ def gate(
         run_id=run.id,
         evaluated_at=run.created_at,
         failures=failures,
+        signature=sign_verdict(fingerprint, run.gate_decision, str(run.id)),
     )
 
 

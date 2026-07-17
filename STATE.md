@@ -3,7 +3,7 @@
 A living snapshot of where the platform is. Dated narrative lives in `reports/`; this is the
 "where are we right now" page. Updated at the end of each cycle.
 
-_Last updated: 2026-07-17 (end of Phase 4)._
+_Last updated: 2026-07-17 (end of Phase 5)._
 
 ## The one-line claim
 
@@ -24,6 +24,7 @@ Reproduce it: `gcloud auth application-default login && RUN_VERTEX_EVAL=true mak
 | Real model execution (Vertex/Gemini), tool interception, evidence | `keel/evals/{live,providers}`, ADR 0009 | `tests/test_vertex_live.py` (live) |
 | **Failure scenario library + risk report** | `keel/evals/{library,taxonomy,risk}.py`, migration 0004, ADR 0011 | `tests/test_library.py`, `test_risk.py`, `test_scenario_library.py`, live scan |
 | **Policy engine** (scopes, precedence, immutable versions, compiler) | `keel/policy/`, `keel/api/policies.py`, migration 0005, ADR 0012 | `tests/test_policy.py`, `test_policy_api.py`, live policy block |
+| **Deployment gate** (CLI + GitHub Action + SARIF, signed verdicts) | `src/agentguard_cli/`, `keel/signing.py`, `.github/actions/agentguard/`, ADR 0013 | `tests/test_cli.py`, `test_cli_workflow.py`, `test_signing.py`, real subprocess |
 
 The gate is **fail-closed** throughout: unevaluated, zero-scenario, and errored states are
 `unknown`/`errored`, never a pass. Limits are **not hardcoded** — the engine compiles them
@@ -66,16 +67,19 @@ built, and a weak probe would erode trust in the gate.
 
 ## Delivery state
 
-- `main`: DO-01 → BE-01 → CI gate (#1) → BE-02 (#2) → EVAL-01 (#3) → EVAL-02 (#4) → Phase 3 (#5).
-- Open: **Phase 4 (policy engine)** — PR to be opened this cycle.
+- `main`: DO-01 → BE-01 → CI gate (#1) → BE-02 (#2) → EVAL-01 (#3) → EVAL-02 (#4) → Phase 3 (#5) → Phase 4 (#6).
+- Open: **Phase 5 (deployment gate)** — PR to be opened this cycle.
 - Every merge is a human gate; nothing auto-merges.
+
+The product loop is now closed: **register agent → scan (real model) → policy-aware gate →
+`agentguard scan` in CI exits non-zero + SARIF → merge blocked.**
 
 ## Next
 
-**Phase 5 — the deployment gate**: a GitHub Action + CLI that calls `GET /agents/{id}/gate`
-(and `/risk`) in CI, blocks the merge on `blocked`, and emits SARIF so findings show up in the
-PR. This is what turns the platform into a deploy-time control a developer actually feels.
-Everything for it now exists server-side; Phase 5 is the client + CI surface. **Then**: the
-policy `locked` ceiling, an `agent.project_id` link (unlocks project scope), and growing the
-library. A dashboard remains chrome over a detection layer whose coverage is still the real
-constraint.
+The wedge exists; the next items make it adoptable and harder to bypass:
+- **Publish the CLI** to a package index (the Action currently needs an `install-command`).
+- **Async scans / push mode (webhooks)** for long real-model runs and event-driven triggers.
+- **Asymmetric verdict signing** (Ed25519) for third-party attestation — HMAC is symmetric today.
+- **Policy `locked` ceiling** and an **`agent.project_id` link** (unlocks project-scoped policies).
+- **Grow the attack library** — coverage is still the real constraint; a dashboard is chrome
+  over it until then.
