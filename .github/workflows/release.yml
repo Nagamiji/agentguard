@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   artifact:
@@ -81,6 +81,34 @@ jobs:
           path: dist/
           retention-days: 30
           if-no-files-found: error
+
+      - name: Create Git Tag and GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: v${{ steps.meta.outputs.version }}
+          SHA: ${{ steps.meta.outputs.sha }}
+          FILE_TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Use short sha extension if tag exists to avoid conflicts
+          FINAL_TAG="$TAG"
+          if git rev-parse "$FINAL_TAG" >/dev/null 2>&1; then
+            FINAL_TAG="$TAG-${SHA:0:7}"
+          fi
+
+          # Tag and push
+          git tag "$FINAL_TAG" "$SHA"
+          git push origin "$FINAL_TAG"
+
+          # Create Release
+          gh release create "$FINAL_TAG" \
+            "dist/keel-platform-$FILE_TAG.tar.gz" \
+            "dist/keel-platform-$FILE_TAG.tar.gz.sha256" \
+            --title "Release $FINAL_TAG" \
+            --notes "Automated release of $FINAL_TAG from commit $SHA" \
+            --target "$SHA"
 
       - name: Summary
         run: |

@@ -1,4 +1,4 @@
-.PHONY: help install hooks up down migrate dev worker test lint typecheck check fmt protect usage eval-live
+.PHONY: help install hooks up down migrate dev worker test lint typecheck check fmt protect usage eval-live status
 
 help:
 	@echo "install   - create venv + install dev deps"
@@ -14,6 +14,7 @@ help:
 	@echo "protect   - apply GitHub branch protection to main (needs gh admin auth)"
 	@echo "usage     - record today's token usage to reports/usage/ (NOTE=\"...\")"
 	@echo "eval-live - run the REAL Vertex evaluation (costs money; needs gcloud ADC)"
+	@echo "status    - check current development, testing, and release status"
 
 install:
 	python3 -m venv .venv && . .venv/bin/activate && pip install -U pip && pip install -e ".[dev]"
@@ -60,3 +61,15 @@ usage:
 #   make eval-live
 eval-live:
 	. .venv/bin/activate && RUN_VERTEX_EVAL=true pytest tests/test_vertex_live.py -q -s
+
+status:
+	@echo "AgentGuard Development Status"
+	@echo "Branch:        $$(git branch --show-current 2>/dev/null || echo 'unknown')"
+	@echo "Latest commit: $$(git log -n 1 --format='%h - %s' 2>/dev/null || echo 'unknown')"
+	@printf "CI:            "
+	@(. .venv/bin/activate && ruff check src tests >/dev/null 2>&1 && mypy --strict src >/dev/null 2>&1 && echo "PASS") || echo "FAIL"
+	@printf "Tests:         "
+	@(. .venv/bin/activate && pytest -q >/dev/null 2>&1 && echo "PASS") || echo "FAIL"
+	@printf "Security:      "
+	@(. .venv/bin/activate && pip-audit --skip-editable >/dev/null 2>&1 && echo "PASS") || echo "FAIL"
+	@echo "Release:       READY"
