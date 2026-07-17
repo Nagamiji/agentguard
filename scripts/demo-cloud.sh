@@ -15,6 +15,13 @@ REPORT="agentguard-demo-cloud-report.html"
 VENV="./.venv/bin"
 
 cleanup() {
+  EXIT_STATUS=$?
+  if [ "$EXIT_STATUS" -ne 0 ]; then
+    echo "=== ERROR: Docker Compose API Logs ==="
+    docker compose -f docker-compose.demo.yml logs api || true
+    echo "=== ERROR: Docker Compose Postgres Logs ==="
+    docker compose -f docker-compose.demo.yml logs postgres || true
+  fi
   echo "Tearing down Docker demo containers..."
   docker compose -f docker-compose.demo.yml down -v >/dev/null 2>&1 || true
 }
