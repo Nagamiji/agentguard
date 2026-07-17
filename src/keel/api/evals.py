@@ -632,3 +632,10 @@ def risk_report(
         ],
         findings=summary.findings,
     )
+
+
+@router.get("/runs", response_model=list[EvalRunOut])
+def list_org_runs(org_id: ReadOrg, db: DbSession) -> list[EvalRunOut]:
+    """List all evaluation runs across all agents for the organization."""
+    rows = db.execute(select(EvalRun).order_by(EvalRun.created_at.desc())).scalars().all()
+    return [EvalRunOut.model_validate(r) for r in rows]
