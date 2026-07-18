@@ -391,6 +391,17 @@ class ApiKey(Base):
     prefix: Mapped[str] = mapped_column(String(16), nullable=False, index=True)
     key_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
     scopes: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+    # The named role this key's scopes were minted from (owner/admin/developer/ci/viewer),
+    # or NULL when scopes were set explicitly. Provenance/display only — enforcement is on
+    # `scopes` (keel/roles.py).
+    role: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    # Optional expiry. A key past its expiry authenticates as if revoked (keel/deps.py).
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Best-effort, throttled to ~once/min per key so a request is not a guaranteed write.
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Identity (prefix or name) of the key that issued this one; "bootstrap"/"onboarding"
+    # for the org's first key. Provenance for the audit trail.
+    created_by: Mapped[str | None] = mapped_column(String(200), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utcnow, nullable=False
     )
@@ -448,4 +459,35 @@ class UsageEvent(Base):
     )
     event_metadata: Mapped[dict[str, Any]] = mapped_column(
         "metadata", JSONB, nullable=False, default=dict
+    )
+
+
+class AuditEvent(Base):
+    """Append-only record of a security-sensitive action (key/org lifecycle).
+
+    Tenant-scoped and protected by RLS (migration 0009), so an org only ever sees its own
+    audit trail. Written best-effort inside the acting request's transaction: an audit
+    failure must never mask the action's own result, so callers swallow write errors.
+    """
+
+    __tablename__ = "audit_events"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    organization_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    # The API key (prefix or name) that performed the action.
+    actor: Mapped[str] = mapped_column(String(200), nullable=False)
+    # Dotted verb, e.g. "api_key.issued", "api_key.revoked", "organization.suspended".
+    action: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    resource_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    resource_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    event_metadata: Mapped[dict[str, Any]] = mapped_column(
+        "metadata", JSONB, nullable=False, default=dict
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, nullable=False, index=True
     )

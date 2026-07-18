@@ -1,10 +1,11 @@
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator, model_validator
 
 from keel.evals.taxonomy import ScenarioCategory
+from keel.roles import VALID_ROLES, VALID_SCOPES, scopes_for_role
 
 
 class OrgCreate(BaseModel):
@@ -45,8 +46,22 @@ class ApiKeyOut(BaseModel):
     name: str
     prefix: str
     scopes: list[str]
+    role: str | None = None
+    created_by: str | None = None
     created_at: datetime
+    expires_at: datetime | None = None
+    last_used_at: datetime | None = None
     revoked_at: datetime | None = None
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def status(self) -> str:
+        """Derived lifecycle: revoked_at / expires_at are the source of truth."""
+        if self.revoked_at is not None:
+            return "revoked"
+        if self.expires_at is not None and self.expires_at <= datetime.now(UTC):
+            return "expired"
+        return "active"
 
 
 class ApiKeyIssued(BaseModel):
@@ -60,17 +75,58 @@ class OrgBootstrapOut(BaseModel):
 
 
 class ApiKeyCreate(BaseModel):
+    """Create a scoped API key.
+
+    Supply *either* a named `role` (owner/admin/developer/ci/viewer) or an explicit
+    `scopes` list — not both. Omitting both keeps the historical default of a full-access
+    key, so existing callers are unaffected; new callers should pass a role for least
+    privilege. `expires_in_days` optionally sets an expiry.
+    """
+
     name: str = Field(default="default", min_length=1, max_length=200)
-    scopes: list[str] = Field(default_factory=lambda: ["*"])
+    scopes: list[str] | None = None
+    role: str | None = None
+    expires_in_days: int | None = Field(default=None, ge=1, le=3650)
 
     @field_validator("scopes")
     @classmethod
-    def validate_scopes(cls, v: list[str]) -> list[str]:
-        allowed = {"*", "admin", "read", "write", "scan"}
+    def validate_scopes(cls, v: list[str] | None) -> list[str] | None:
+        if v is None:
+            return None
         for s in v:
-            if s not in allowed:
-                raise ValueError(f"Invalid scope '{s}', must be one of {sorted(allowed)}")
+            if s not in VALID_SCOPES:
+                raise ValueError(f"Invalid scope '{s}', must be one of {sorted(VALID_SCOPES)}")
         return v
+
+    @field_validator("role")
+    @classmethod
+    def validate_role(cls, v: str | None) -> str | None:
+        if v is not None and v not in VALID_ROLES:
+            raise ValueError(f"Invalid role '{v}', must be one of {sorted(VALID_ROLES)}")
+        return v
+
+    @model_validator(mode="after")
+    def resolve_scopes(self) -> "ApiKeyCreate":
+        if self.role is not None and self.scopes is not None:
+            raise ValueError("Provide either 'role' or 'scopes', not both")
+        if self.role is not None:
+            self.scopes = scopes_for_role(self.role)
+        elif self.scopes is None:
+            # Backward-compatible default: a full-access key.
+            self.scopes = ["*"]
+        return self
+
+
+class AuditEventOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    actor: str
+    action: str
+    resource_type: str | None = None
+    resource_id: str | None = None
+    metadata: dict[str, Any] = Field(validation_alias="event_metadata")
+    created_at: datetime
 
 
 class ProjectCreate(BaseModel):

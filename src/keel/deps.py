@@ -1,7 +1,8 @@
 import uuid
+from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any
 
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, Header, HTTPException, Request, status
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
@@ -11,11 +12,16 @@ from keel.security import hash_api_key
 
 DbSession = Annotated[Session, Depends(get_session)]
 
+# How stale last_used_at may get before we refresh it. Bounds the extra write to at most
+# once per minute per key so authentication is not a guaranteed database write.
+_LAST_USED_THROTTLE = timedelta(seconds=60)
+
 
 def require_permission(*required_scopes: str) -> Any:
     """Dependency builder that authenticates the API key, checks scopes, and binds RLS."""
 
     def dependency(
+        request: Request,
         db: DbSession,
         authorization: Annotated[str | None, Header()] = None,
     ) -> uuid.UUID:
@@ -38,6 +44,13 @@ def require_permission(*required_scopes: str) -> Any:
         if api_key is None:
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid or revoked API key")
 
+        now = datetime.now(UTC)
+
+        # Expiry is enforced here, not in the query, so an expired key gets a clear
+        # message instead of looking like an unknown key.
+        if api_key.expires_at is not None and api_key.expires_at <= now:
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, "API key has expired")
+
         # Organization lifecycle check: suspended orgs are completely blocked.
         from keel.models import Organization
 
@@ -59,7 +72,20 @@ def require_permission(*required_scopes: str) -> Any:
                     f"Scope forbidden: key lacks required permission (needs one of: {needed})",
                 )
 
-        # Set org context variable
+        # Refresh last_used_at at most once per throttle window. This commit must happen
+        # BEFORE the SET LOCAL below: committing ends the transaction, which would discard
+        # a transaction-local setting. Here there is no request work pending yet (the
+        # endpoint body has not run), so committing only persists last_used_at.
+        last_used = api_key.last_used_at
+        if last_used is None or (now - last_used) > _LAST_USED_THROTTLE:
+            api_key.last_used_at = now
+            db.commit()
+
+        # Record who is acting, for the audit trail (keel/audit.py). The key prefix, never
+        # the secret. request.state survives from this dependency into the handler (a shared
+        # per-request object), unlike a contextvar set inside a threadpool-run dependency.
+        request.state.actor = api_key.prefix
+
         from keel.context import set_org_id
 
         set_org_id(str(api_key.organization_id))

@@ -1,9 +1,10 @@
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
-from fastapi import APIRouter, HTTPException, Response, status
+from fastapi import APIRouter, HTTPException, Request, Response, status
 from sqlalchemy import select
 
+from keel.audit import record_audit_event
 from keel.deps import AdminOrg, DbSession
 from keel.models import ApiKey, Organization, Plan
 from keel.schemas import (
@@ -49,16 +50,39 @@ def bootstrap_org(payload: OrgCreate, db: DbSession) -> OrgBootstrapOut:
 
 
 @router.post("/orgs/keys", response_model=ApiKeyIssued, status_code=status.HTTP_201_CREATED)
-def issue_key(payload: ApiKeyCreate, org_id: AdminOrg, db: DbSession) -> ApiKeyIssued:
+def issue_key(
+    payload: ApiKeyCreate, request: Request, org_id: AdminOrg, db: DbSession
+) -> ApiKeyIssued:
+    actor = getattr(request.state, "actor", None)
     full_key, prefix, key_hash = generate_api_key()
+    expires_at = (
+        datetime.now(UTC) + timedelta(days=payload.expires_in_days)
+        if payload.expires_in_days is not None
+        else None
+    )
+    # The schema's model_validator always resolves scopes (from role, explicit, or the
+    # default); the None-branch only exists to satisfy the type checker.
+    scopes = payload.scopes if payload.scopes is not None else ["*"]
     api_key = ApiKey(
         organization_id=org_id,
         name=payload.name,
         prefix=prefix,
         key_hash=key_hash,
-        scopes=payload.scopes,
+        scopes=scopes,
+        role=payload.role,
+        expires_at=expires_at,
+        created_by=actor,
     )
     db.add(api_key)
+    record_audit_event(
+        db,
+        organization_id=org_id,
+        actor=actor,
+        action="api_key.issued",
+        resource_type="api_key",
+        resource_id=str(api_key.id),
+        metadata={"name": payload.name, "scopes": scopes, "role": payload.role},
+    )
     db.commit()
     return ApiKeyIssued(key=ApiKeyOut.model_validate(api_key), api_key=full_key)
 
@@ -76,7 +100,7 @@ def list_keys(org_id: AdminOrg, db: DbSession) -> list[ApiKeyOut]:
 
 
 @router.delete("/orgs/keys/{key_id}", status_code=status.HTTP_204_NO_CONTENT)
-def revoke_key(key_id: uuid.UUID, org_id: AdminOrg, db: DbSession) -> Response:
+def revoke_key(key_id: uuid.UUID, request: Request, org_id: AdminOrg, db: DbSession) -> Response:
     """Revoke a key. Scoped by organization_id: you cannot revoke another org's key."""
     api_key = db.execute(
         select(ApiKey).where(ApiKey.id == key_id, ApiKey.organization_id == org_id)
@@ -85,6 +109,15 @@ def revoke_key(key_id: uuid.UUID, org_id: AdminOrg, db: DbSession) -> Response:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "API key not found")
     if api_key.revoked_at is None:
         api_key.revoked_at = datetime.now(UTC)
+        record_audit_event(
+            db,
+            organization_id=org_id,
+            actor=getattr(request.state, "actor", None),
+            action="api_key.revoked",
+            resource_type="api_key",
+            resource_id=str(api_key.id),
+            metadata={"name": api_key.name},
+        )
         db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
@@ -142,7 +175,9 @@ def onboard_customer(payload: OnboardingInput, db: DbSession) -> OnboardingOut:
     response_model=OrgStatusOut,
     tags=["admin"],
 )
-def activate_org(org_id: uuid.UUID, caller_org: AdminOrg, db: DbSession) -> OrgStatusOut:
+def activate_org(
+    org_id: uuid.UUID, request: Request, caller_org: AdminOrg, db: DbSession
+) -> OrgStatusOut:
     """Activate a pending or suspended organization (admin only)."""
     org = db.get(Organization, org_id)
     if org is None:
@@ -150,6 +185,14 @@ def activate_org(org_id: uuid.UUID, caller_org: AdminOrg, db: DbSession) -> OrgS
     if org.status == "deleted":
         raise HTTPException(status.HTTP_409_CONFLICT, "Cannot activate a deleted organization")
     org.status = "active"
+    record_audit_event(
+        db,
+        organization_id=caller_org,
+        actor=getattr(request.state, "actor", None),
+        action="organization.activated",
+        resource_type="organization",
+        resource_id=str(org_id),
+    )
     db.commit()
     return OrgStatusOut(id=org.id, name=org.name, status=org.status)
 
@@ -159,7 +202,9 @@ def activate_org(org_id: uuid.UUID, caller_org: AdminOrg, db: DbSession) -> OrgS
     response_model=OrgStatusOut,
     tags=["admin"],
 )
-def suspend_org(org_id: uuid.UUID, caller_org: AdminOrg, db: DbSession) -> OrgStatusOut:
+def suspend_org(
+    org_id: uuid.UUID, request: Request, caller_org: AdminOrg, db: DbSession
+) -> OrgStatusOut:
     """Suspend an organization — all API key authentication will be rejected."""
     org = db.get(Organization, org_id)
     if org is None:
@@ -167,5 +212,13 @@ def suspend_org(org_id: uuid.UUID, caller_org: AdminOrg, db: DbSession) -> OrgSt
     if org.status == "deleted":
         raise HTTPException(status.HTTP_409_CONFLICT, "Cannot suspend a deleted organization")
     org.status = "suspended"
+    record_audit_event(
+        db,
+        organization_id=caller_org,
+        actor=getattr(request.state, "actor", None),
+        action="organization.suspended",
+        resource_type="organization",
+        resource_id=str(org_id),
+    )
     db.commit()
     return OrgStatusOut(id=org.id, name=org.name, status=org.status)
