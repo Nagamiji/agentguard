@@ -34,7 +34,18 @@ say "1/4  Starting AgentGuard SaaS Containerised Stack (docker-compose.demo.yml)
 docker compose -f docker-compose.demo.yml up --build -d
 
 say "2/4  Waiting for API gateway to become healthy on http://localhost:$PORT/healthz"
-curl -s --retry 40 --retry-connrefused --retry-delay 1 -m 5 "http://localhost:$PORT/healthz" >/dev/null
+# Docker binds the host port before the API is listening, so early connections are
+# reset (curl exit 56), which --retry-connrefused does not retry. Loop instead.
+for attempt in $(seq 1 60); do
+  if curl -sf -m 5 "http://localhost:$PORT/healthz" >/dev/null; then
+    break
+  fi
+  if [ "$attempt" -eq 60 ]; then
+    echo "API did not become healthy after 60s" >&2
+    exit 1
+  fi
+  sleep 1
+done
 
 say "3/4  Simulating Customer Onboarding (POST /v1/onboarding)"
 CTX=$("$VENV/python" - "$PORT" <<'PY'
@@ -97,7 +108,7 @@ echo "Exit code: $CODE  (0=allowed, 20=blocked, 30=unknown)"
 echo "HTML report generated: $REPORT"
 
 if [ "$CODE" -eq 20 ]; then
-  printf "\n\033[1;32mSUCCESS: AgentGuard successfully blocked refund limit violation ($9000) in Docker container stack!\033[0m\n\n"
+  printf "\n\033[1;32mSUCCESS: AgentGuard successfully blocked refund limit violation (\$9000) in Docker container stack!\033[0m\n\n"
 else
   printf "\n\033[1;31mFAILED: Expected scan to be blocked with code 20 but got %s\033[0m\n\n" "$CODE"
   exit 1
