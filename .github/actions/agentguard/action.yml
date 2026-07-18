@@ -61,7 +61,7 @@ inputs:
   install-command:
     description: "How to install the CLI. Override until it is on your package index."
     required: false
-    default: "pip install agentguard"
+    default: "pip install agentguard-dev"
 
 runs:
   using: "composite"

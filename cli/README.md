@@ -12,7 +12,7 @@ engineer it blocks at 2am.
 ## Install
 
 ```bash
-pip install agentguard
+pip install agentguard-dev
 ```
 
 The CLI is a thin API client — its only dependency is `httpx`. It talks to an AgentGuard

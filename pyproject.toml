@@ -23,8 +23,8 @@ dependencies = [
     "google-auth>=2.30",
 ]
 
-# The deployment-gate CLI now ships as its own lightweight distribution, `agentguard`
-# (see cli/pyproject.toml) — a stranger runs `pip install agentguard` without pulling in
+# The deployment-gate CLI now ships as its own lightweight distribution, `agentguard-dev`
+# (see cli/pyproject.toml) — a stranger runs `pip install agentguard-dev` without pulling in
 # the control-plane server stack. `make install` installs it editable for local dev/demo.
 
 [project.optional-dependencies]

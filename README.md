@@ -10,7 +10,7 @@ The deployment gate a developer runs in CI is a standalone, lightweight package 
 dependency is `httpx` — it does **not** pull in the server stack). Source lives in `cli/`.
 
 ```bash
-pip install agentguard          # once published to PyPI (see .github/workflows/publish-cli.yml)
+pip install agentguard-dev      # once published to PyPI (see .github/workflows/publish-cli.yml)
 agentguard --help
 ```
 

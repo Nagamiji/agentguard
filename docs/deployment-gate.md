@@ -19,7 +19,7 @@ the PR.
 Install (until published to a package index, install from the repo):
 
 ```bash
-pip install agentguard          # once published
+pip install agentguard-dev      # once published
 # or, from a checkout:  pip install .
 ```
 

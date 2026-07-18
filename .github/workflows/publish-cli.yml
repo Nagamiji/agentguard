@@ -1,9 +1,9 @@
 name: Publish CLI
 
-# Publishes the `agentguard` CLI distribution (cli/) to PyPI on a cli-v* tag.
+# Publishes the `agentguard-dev` CLI distribution (cli/) to PyPI on a cli-v* tag.
 #
 # Uses PyPI Trusted Publishing (OIDC) — no API token is stored. One-time setup on PyPI:
-# add a trusted publisher to the `agentguard` project pointing at this repo, workflow
+# add a trusted publisher to the `agentguard-dev` project pointing at this repo, workflow
 # `publish-cli.yml`, environment `pypi`. Until that is configured the publish step is the
 # only thing that fails; the build + install smoke test still run and gate the tag.
 #
@@ -45,7 +45,7 @@ jobs:
       - name: Install into a clean venv and smoke-test
         run: |
           python -m venv /tmp/clivenv
-          /tmp/clivenv/bin/pip install cli/dist/agentguard-*.whl
+          /tmp/clivenv/bin/pip install cli/dist/agentguard*.whl
           /tmp/clivenv/bin/agentguard --help
           # The CLI must stay lightweight: the server stack must NOT be pulled in.
           if /tmp/clivenv/bin/pip show fastapi >/dev/null 2>&1; then
