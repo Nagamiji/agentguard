@@ -9,7 +9,9 @@ import uuid
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import create_engine, text
 
+from keel.config import settings
 from keel.db import check_db
 from keel.main import app
 
@@ -30,6 +32,27 @@ def _bootstrap(label: str) -> tuple[str, str]:
 
 def _auth(key: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {key}"}
+
+
+def _upgrade_plan(org_id: str, plan: str = "pilot") -> None:
+    """Move an org off the free plan (agent_limit=1) so multi-agent tests can run.
+
+    These tests prove RLS isolation, not plan enforcement; the owner engine is used
+    because there is no API for plan changes and the app role is RLS-scoped.
+    """
+    engine = create_engine(settings.migration_database_url)
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "UPDATE organizations "
+                    "SET plan_id = (SELECT id FROM plans WHERE name = :plan) "
+                    "WHERE id = :org_id"
+                ),
+                {"plan": plan, "org_id": org_id},
+            )
+    finally:
+        engine.dispose()
 
 
 def test_projects_are_isolated_between_tenants_by_rls() -> None:
@@ -240,7 +263,8 @@ def test_changed_manifest_creates_a_new_version() -> None:
 
 
 def test_sequence_numbers_are_per_agent_not_global() -> None:
-    _org_a, key_a = _bootstrap("org-a")
+    org_a, key_a = _bootstrap("org-a")
+    _upgrade_plan(org_a)  # free plan caps at 1 agent; this test needs two
     agent_one = _make_agent(key_a, "agent-one")
     agent_two = _make_agent(key_a, "agent-two")
 
@@ -267,8 +291,11 @@ def test_manifest_with_a_secret_is_rejected() -> None:
 
 
 def test_slug_is_unique_per_tenant_but_not_globally() -> None:
-    _org_a, key_a = _bootstrap("org-a")
+    org_a, key_a = _bootstrap("org-a")
     _org_b, key_b = _bootstrap("org-b")
+    # The duplicate-slug attempt below must reach the slug check; on the free plan the
+    # agent limit (1) fires first and turns the expected 409 into a 402.
+    _upgrade_plan(org_a)
 
     assert (
         client.post("/v1/agents", json={"name": "Shared Name"}, headers=_auth(key_a)).status_code

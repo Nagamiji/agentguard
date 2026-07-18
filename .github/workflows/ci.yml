@@ -9,6 +9,10 @@ on:
   push:
     branches: [main]
   merge_group:
+  # The Auto Merge workflow merges with GITHUB_TOKEN, whose pushes never fire `on:
+  # push` — it dispatches CI on main explicitly instead (workflow_dispatch is exempt
+  # from that suppression). Also handy for manual re-runs.
+  workflow_dispatch:
 
 # A new push to a PR makes the in-flight run irrelevant; don't pay for it.
 concurrency:

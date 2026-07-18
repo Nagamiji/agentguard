@@ -53,11 +53,16 @@ Once protection is live, a PR merges only when **all** hold:
 3. One approving review — from a code owner for security-critical paths (`.github/CODEOWNERS`).
 4. Review conversations are resolved.
 
-**Green CI unlocks the merge button; a human still presses it.** Auto-merge is off at the
-repo level, on purpose: CI proves the gates pass, not that the change was correct or
-wanted. With Claude as maker, the reviewing human is the only checker — this is the
-maker≠checker rule in mechanism form, not just in prose. Turning auto-merge on is a policy
-change that must edit this file first.
+**Green CI unlocks the merge; a human still authorizes it.** Since PR #11 the merge is
+performed by `.github/workflows/auto-merge.yml`: a human applies the `ready-to-merge`
+label **after reviewing the PR**, and the workflow squash-merges only once `gate` and the
+migration round-trip are green on the PR's head SHA. The label is the human gate — with
+Claude as maker, applying it is the checker's act, so never apply it before review, and
+never before CI has had its say (history: the first version of this workflow used
+GitHub's native `--auto` merge, which without branch protection merges instantly; PRs
+#12 and #13 landed on `main` with red checks that way). CI proves the gates pass, not
+that the change was correct or wanted. Changing this merge mechanism is a policy change
+that must edit this file first.
 
 Caveat, written down rather than hidden: `enforce_admins` is currently **off**, because a
 lone maintainer cannot approve their own PR and would otherwise be locked out of `main`.
