@@ -1,29 +1,88 @@
 name: Auto Merge
 
+# Merges a `ready-to-merge`-labeled PR only after every check on its head SHA has
+# completed successfully. GitHub's native auto-merge (`gh pr merge --auto`) cannot do
+# this here: without branch protection (unavailable on this plan, see
+# docs/branch-protection.md) it merges immediately, red or green — which is exactly
+# what happened to PRs #12 and #13.
+#
+# Trigger design: `workflow_run` fires when CI or Migration Test finishes (covering
+# "label applied, then checks finish"); `labeled` covers "checks finished, then label
+# applied". Every firing re-evaluates from scratch, so ordering races converge.
+
 on:
+  workflow_run:
+    workflows: [CI, "Migration Test"]
+    types: [completed]
   pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
-      - labeled
+    types: [labeled]
 
 permissions:
   pull-requests: write
   contents: write
+  checks: read
+  actions: write # to re-dispatch CI on main after the merge
 
 jobs:
-  auto-merge:
-    name: Enable Auto-Merge
+  merge-when-green:
+    name: Merge when green
     runs-on: ubuntu-latest
-    if: >-
-      !github.event.pull_request.draft &&
-      github.event.pull_request.head.repo.full_name == github.repository &&
-      contains(github.event.pull_request.labels.*.name, 'ready-to-merge')
     steps:
-      - name: Enable auto-merge for this PR
+      - name: Merge labeled PRs whose checks are all green
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_URL: ${{ github.event.pull_request.html_url }}
+          REPO: ${{ github.repository }}
+          # Empty for workflow_run events; set for labeled events.
+          EVENT_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.number || '' }}
         run: |
-          gh pr merge "$PR_URL" --auto --squash --delete-branch
+          set -euo pipefail
+
+          # Candidate PRs: open, labeled ready-to-merge, not draft, same-repo head.
+          candidates=$(gh pr list --repo "$REPO" --state open --label ready-to-merge \
+            --json number,headRefOid,isDraft,isCrossRepository \
+            --jq '.[] | select((.isDraft or .isCrossRepository) | not) | "\(.number) \(.headRefOid)"')
+
+          if [ -z "$candidates" ]; then
+            echo "No open ready-to-merge PRs."
+            exit 0
+          fi
+
+          merged_any=false
+          while read -r pr sha; do
+            # For labeled events only evaluate the PR the event is about.
+            if [ -n "$EVENT_PR" ] && [ "$pr" != "$EVENT_PR" ]; then
+              continue
+            fi
+
+            # All check runs on the head SHA must be completed and successful.
+            # Exclude this job itself (it is in_progress while evaluating);
+            # neutral/skipped conclusions are non-blocking by definition.
+            checks=$(gh api "repos/$REPO/commits/$sha/check-runs" --paginate \
+              --jq '[.check_runs[] | select(.name != "Merge when green")]' | jq -s 'add')
+
+            total=$(echo "$checks" | jq 'length')
+            bad=$(echo "$checks" | jq '[.[] | select(
+              .status != "completed" or
+              ((.conclusion // "") | IN("success", "neutral", "skipped") | not)
+            )] | length')
+            # The two gates that must exist AND be green; a missing check must not
+            # read as a pass.
+            gates=$(echo "$checks" | jq '[.[] | select(
+              (.name == "gate" or (.name | startswith("Migration round-trip"))) and
+              .status == "completed" and .conclusion == "success"
+            ) | .name] | unique | length')
+
+            echo "PR #$pr @$sha: $total checks, $bad not green, $gates/2 required gates green"
+            if [ "$total" -gt 0 ] && [ "$bad" -eq 0 ] && [ "$gates" -eq 2 ]; then
+              echo "Merging PR #$pr"
+              gh pr merge "$pr" --repo "$REPO" --squash --delete-branch
+              merged_any=true
+            fi
+          done <<< "$candidates"
+
+          # Merges by GITHUB_TOKEN do not fire `on: push` workflows, so CI (and the
+          # Release workflow chained to it) would never run on main. workflow_dispatch
+          # is exempt from that rule — kick CI explicitly.
+          if [ "$merged_any" = true ]; then
+            gh workflow run ci.yml --repo "$REPO" --ref main
+          fi
