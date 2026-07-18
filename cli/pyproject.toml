@@ -3,7 +3,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "agentguard"
+name = "agentguard-dev"
 version = "0.1.0"
 description = "AgentGuard CLI — the deployment gate that blocks unsafe AI agents in CI."
 readme = "README.md"
