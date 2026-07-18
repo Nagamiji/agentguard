@@ -1,12 +1,14 @@
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from fastapi import APIRouter, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy import select
 
 from keel.audit import record_audit_event
 from keel.deps import AdminOrg, DbSession
 from keel.models import ApiKey, Organization, Plan
+from keel.provisioning import provisioning_guard
+from keel.roles import scopes_for_role
 from keel.schemas import (
     ApiKeyCreate,
     ApiKeyIssued,
@@ -23,14 +25,21 @@ from keel.security import generate_api_key
 router = APIRouter(prefix="/v1", tags=["organizations"])
 
 
-@router.post("/orgs", response_model=OrgBootstrapOut, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/orgs",
+    response_model=OrgBootstrapOut,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(provisioning_guard)],
+)
 def bootstrap_org(payload: OrgCreate, db: DbSession) -> OrgBootstrapOut:
-    """Create an organization and issue its first API key.
+    """Create an organization and issue its first (administrative) API key.
 
-    SECURITY [BE-01 scope]: this bootstrap endpoint is intentionally
-    unauthenticated so a tenant can exist before it has a credential. Before any
-    public exposure it must sit behind signup/authn + rate limiting (see BE-07,
-    SEC-01). Tracked as a known gap, not an oversight.
+    SECURITY (S7): this endpoint runs *before* any credential exists, so it cannot be
+    authorized by an API key. It is instead gated by `provisioning_guard` — a shared
+    provisioning secret (required whenever configured; fail-closed in production) plus a
+    per-IP rate limit. The bootstrap key is the org's administrative root, so it carries the
+    explicit `admin` scopes (read/write/scan/admin) — not the `*` wildcard, which would also
+    grant any scope added in the future.
     """
     org = Organization(name=payload.name)
     db.add(org)
@@ -41,7 +50,13 @@ def bootstrap_org(payload: OrgCreate, db: DbSession) -> OrgBootstrapOut:
     full_key, prefix, key_hash = generate_api_key()
     db.add(
         ApiKey(
-            organization_id=org.id, name="default", prefix=prefix, key_hash=key_hash, scopes=["*"]
+            organization_id=org.id,
+            name="default",
+            prefix=prefix,
+            key_hash=key_hash,
+            scopes=scopes_for_role("admin"),
+            role="admin",
+            created_by="bootstrap",
         )
     )
     db.commit()
@@ -122,9 +137,21 @@ def revoke_key(key_id: uuid.UUID, request: Request, org_id: AdminOrg, db: DbSess
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.post("/onboarding", response_model=OnboardingOut, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/onboarding",
+    response_model=OnboardingOut,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(provisioning_guard)],
+)
 def onboard_customer(payload: OnboardingInput, db: DbSession) -> OnboardingOut:
-    """Self-serve customer onboarding: provisions an organization and credentials."""
+    """Self-serve customer onboarding: provisions an organization and credentials.
+
+    SECURITY (S7): gated by `provisioning_guard` (provisioning secret + per-IP rate limit),
+    since it creates a tenant before any credential exists. The initial key is least-privilege
+    — the `developer` role (read/write/scan) — so a self-serve tenant can register agents,
+    author policies, and run scans, but cannot manage API keys or the org itself. An `admin`
+    key is granted separately (by an existing admin key or the operator).
+    """
     # 1. Create Organization
     org = Organization(name=payload.organization_name)
     db.add(org)
@@ -135,21 +162,23 @@ def onboard_customer(payload: OnboardingInput, db: DbSession) -> OnboardingOut:
     if free_plan:
         org.plan_id = free_plan.id
 
-    # 3. Create initial API key
+    # 3. Create initial API key (least privilege: developer, not wildcard)
     full_key, prefix, key_hash = generate_api_key()
     api_key = ApiKey(
         organization_id=org.id,
         name="onboarding-key",
         prefix=prefix,
         key_hash=key_hash,
-        scopes=["*"],
+        scopes=scopes_for_role("developer"),
+        role="developer",
+        created_by="onboarding",
     )
     db.add(api_key)
     db.commit()
 
     next_steps = (
         "Welcome to AgentGuard! To integrate security scans into your workflow:\n"
-        "1. Install the AgentGuard CLI: pip install agentguard-cli\n"
+        "1. Install the AgentGuard CLI: pip install agentguard-dev\n"
         "2. Export your credentials in your terminal or CI environment:\n"
         f"   export AGENTGUARD_API_KEY={full_key}\n"
         "3. Scaffold your configuration in your repository root:\n"
