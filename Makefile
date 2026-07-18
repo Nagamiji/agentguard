@@ -18,7 +18,7 @@ help:
 	@echo "demo-cloud - run the fully containerised multi-tenant SaaS demo flow"
 
 install:
-	python3 -m venv .venv && . .venv/bin/activate && pip install -U pip && pip install -e ".[dev]"
+	python3 -m venv .venv && . .venv/bin/activate && pip install -U pip && pip install -e ".[dev]" && pip install -e ./cli
 
 up:
 	docker compose up -d
@@ -39,10 +39,10 @@ test:
 	. .venv/bin/activate && pytest
 
 lint:
-	. .venv/bin/activate && ruff check src tests && ruff format --check src tests
+	. .venv/bin/activate && ruff check src cli/src tests && ruff format --check src cli/src tests
 
 typecheck:
-	. .venv/bin/activate && mypy --strict src
+	. .venv/bin/activate && mypy --strict src cli/src
 
 check: lint typecheck test
 
@@ -68,7 +68,7 @@ status:
 	@echo "Branch:        $$(git branch --show-current 2>/dev/null || echo 'unknown')"
 	@echo "Latest commit: $$(git log -n 1 --format='%h - %s' 2>/dev/null || echo 'unknown')"
 	@printf "CI:            "
-	@(. .venv/bin/activate && ruff check src tests >/dev/null 2>&1 && mypy --strict src >/dev/null 2>&1 && echo "PASS") || echo "FAIL"
+	@(. .venv/bin/activate && ruff check src cli/src tests >/dev/null 2>&1 && mypy --strict src cli/src >/dev/null 2>&1 && echo "PASS") || echo "FAIL"
 	@printf "Tests:         "
 	@(. .venv/bin/activate && pytest -q \
 		--ignore=tests/test_isolation.py \

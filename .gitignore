@@ -4,6 +4,9 @@ __pycache__/
 .venv/
 venv/
 *.egg-info/
+# Build artifacts (e.g. `python -m build cli/`)
+build/
+dist/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/

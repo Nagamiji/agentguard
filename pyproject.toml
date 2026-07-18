@@ -3,50 +3,11 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "agentguard"
-version = "0.1.0"
-description = "The security gate for AI agents before they touch production."
-readme = "README.md"
+name = "keel-platform"
+version = "0.0.1"
+description = "AgentGuard / Keel — AI agent reliability platform (control plane + workers)"
 requires-python = ">=3.12"
-license = { text = "MIT" }
-authors = [
-    { name = "AgentGuard Team", email = "security@agentguard.ai" }
-]
-keywords = ["ai-security", "llm-security", "prompt-injection", "agent-evaluation", "ci-security-gate"]
-classifiers = [
-    "Development Status :: 4 - Beta",
-    "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python :: 3.12",
-    "Topic :: Security",
-    "Topic :: Software Development :: Testing",
-]
-# The published `agentguard` package is the developer CLI (adr-0013). It talks to the API
-# over HTTP and computes fingerprints locally with the stdlib, so httpx is its only runtime
-# dependency. The FastAPI control plane + worker are NOT pip-installed — they ship as a
-# Docker image built from this same repo (see Dockerfile / release.yml). Their dependencies
-# live in the `server` extra below purely as documentation; installing the wheel must never
-# pull the backend stack. Verified by tests/test_packaging.py.
 dependencies = [
-    "httpx>=0.27",
-]
-
-[project.urls]
-Homepage = "https://agentguard.ai"
-Documentation = "https://agentguard.ai/docs"
-Repository = "https://github.com/Nagamiji/agentguard"
-Issues = "https://github.com/Nagamiji/agentguard/issues"
-
-[project.scripts]
-# The deployment-gate CLI (Phase 5). Installed with the package; the GitHub Action runs it.
-agentguard = "agentguard_cli.main:main"
-
-[project.optional-dependencies]
-# The backend (control plane + worker) is deployed as a Docker image, not via pip. These are
-# listed so the runtime requirements are documented in one place and so a `pip install -e
-# .[server]` gives a working dev backend from source — they are never installed by a plain
-# `pip install agentguard`.
-server = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.30",
     "pydantic>=2.7",
@@ -55,8 +16,18 @@ server = [
     "alembic>=1.13",
     "psycopg[binary]>=3.1",
     "redis>=5.0",
+    # Runtime deps of the Vertex provider (EVAL-02). httpx was previously dev-only, which
+    # would have been an ImportError in the image the moment a real evaluation ran — the
+    # lazy import in get_runner() hides it from the Docker smoke test.
+    "httpx>=0.27",
     "google-auth>=2.30",
 ]
+
+# The deployment-gate CLI now ships as its own lightweight distribution, `agentguard`
+# (see cli/pyproject.toml) — a stranger runs `pip install agentguard` without pulling in
+# the control-plane server stack. `make install` installs it editable for local dev/demo.
+
+[project.optional-dependencies]
 dev = [
     "pytest>=8.0",
     "httpx>=0.27",
@@ -71,24 +42,21 @@ dev = [
 [tool.setuptools]
 package-dir = { "" = "src" }
 
-# The published wheel is the CLI only. `include` scopes discovery to `agentguard_cli*` so
-# the `keel` backend and `worker` never ship to PyPI (that would publish server internals
-# and force a ~100 MB backend dependency tree onto every `pip install agentguard`). The CLI
-# is self-contained: it computes fingerprints via agentguard_cli.fingerprint (stdlib only)
-# and talks to the API over httpx. The backend runs from source / the Docker image, where
-# all of src/ is present, so it is unaffected by this filter. Enforced by tests/test_packaging.py.
+# Discovered, not hand-listed. A hardcoded list silently omitted keel.evals: every test
+# passed (they import from src/ via pythonpath) while the built wheel was missing the
+# package, so only the Docker smoke test caught it. Discovery removes the failure mode.
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["agentguard_cli*"]
 
 [tool.pytest.ini_options]
-pythonpath = ["src"]
+# cli/src carries the standalone CLI distribution (agentguard_cli + agentguard_core).
+pythonpath = ["src", "cli/src"]
 testpaths = ["tests"]
 addopts = "-q"
 
 [tool.ruff]
 line-length = 100
-src = ["src", "tests"]
+src = ["src", "cli/src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "S"]
@@ -98,7 +66,7 @@ per-file-ignores = { "tests/*" = ["S101"] }
 [tool.mypy]
 python_version = "3.12"
 strict = true
-mypy_path = "src"
+mypy_path = ["src", "cli/src"]
 ignore_missing_imports = true
 
 # redis-py responses are dynamically typed; relax strict call/return checks in the worker only.
