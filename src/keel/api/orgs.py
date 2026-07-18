@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException, Response, status
 from sqlalchemy import select
 
 from keel.deps import AdminOrg, DbSession
-from keel.models import ApiKey, Organization
+from keel.models import ApiKey, Organization, Plan
 from keel.schemas import (
     ApiKeyCreate,
     ApiKeyIssued,
@@ -15,6 +15,7 @@ from keel.schemas import (
     OrgBootstrapOut,
     OrgCreate,
     OrgOut,
+    OrgStatusOut,
 )
 from keel.security import generate_api_key
 
@@ -97,8 +98,6 @@ def onboard_customer(payload: OnboardingInput, db: DbSession) -> OnboardingOut:
     db.flush()
 
     # 2. Link default "free" plan
-    from keel.models import Plan
-
     free_plan = db.execute(select(Plan).where(Plan.name == "free")).scalar_one_or_none()
     if free_plan:
         org.plan_id = free_plan.id
@@ -131,3 +130,42 @@ def onboard_customer(payload: OnboardingInput, db: DbSession) -> OnboardingOut:
         api_key=full_key,
         next_steps=next_steps,
     )
+
+
+# ---------------------------------------------------------------------------
+# Admin: organization lifecycle
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/admin/orgs/{org_id}/activate",
+    response_model=OrgStatusOut,
+    tags=["admin"],
+)
+def activate_org(org_id: uuid.UUID, caller_org: AdminOrg, db: DbSession) -> OrgStatusOut:
+    """Activate a pending or suspended organization (admin only)."""
+    org = db.get(Organization, org_id)
+    if org is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Organization not found")
+    if org.status == "deleted":
+        raise HTTPException(status.HTTP_409_CONFLICT, "Cannot activate a deleted organization")
+    org.status = "active"
+    db.commit()
+    return OrgStatusOut(id=org.id, name=org.name, status=org.status)
+
+
+@router.post(
+    "/admin/orgs/{org_id}/suspend",
+    response_model=OrgStatusOut,
+    tags=["admin"],
+)
+def suspend_org(org_id: uuid.UUID, caller_org: AdminOrg, db: DbSession) -> OrgStatusOut:
+    """Suspend an organization — all API key authentication will be rejected."""
+    org = db.get(Organization, org_id)
+    if org is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Organization not found")
+    if org.status == "deleted":
+        raise HTTPException(status.HTTP_409_CONFLICT, "Cannot suspend a deleted organization")
+    org.status = "suspended"
+    db.commit()
+    return OrgStatusOut(id=org.id, name=org.name, status=org.status)

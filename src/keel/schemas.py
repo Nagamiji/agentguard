@@ -26,7 +26,16 @@ class OrgOut(BaseModel):
 
     id: uuid.UUID
     name: str
+    status: str = "active"
     created_at: datetime
+
+
+class OrgStatusOut(BaseModel):
+    """Returned by admin lifecycle endpoints."""
+
+    id: uuid.UUID
+    name: str
+    status: str
 
 
 class ApiKeyOut(BaseModel):
