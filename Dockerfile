@@ -10,9 +10,11 @@ WORKDIR /build
 # Dependency layer: keyed on pyproject alone so source edits don't reinstall the world.
 COPY pyproject.toml README.md ./
 COPY src ./src
+# Use a regular (non-editable) install so the package is fully contained in the venv
+# and does not need /build/src to exist in the runtime stage.
 RUN python -m venv /opt/venv \
     && /opt/venv/bin/pip install -U pip setuptools wheel \
-    && /opt/venv/bin/pip install .
+    && /opt/venv/bin/pip install --no-build-isolation .
 
 
 FROM python:3.12-slim AS runtime
