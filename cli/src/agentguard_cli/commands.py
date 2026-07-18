@@ -90,7 +90,7 @@ def _safe(fn: Any) -> Any:
 
 def do_fingerprint(manifest_path: str) -> Outcome:
     """Local — compute a manifest's fingerprint with no server call."""
-    from keel.fingerprint import ManifestError, compute_fingerprint
+    from agentguard_core.fingerprint import ManifestError, compute_fingerprint
 
     try:
         manifest = json.loads(Path(manifest_path).read_text())

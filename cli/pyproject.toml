@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agentguard"
+version = "0.1.0"
+description = "AgentGuard CLI — the deployment gate that blocks unsafe AI agents in CI."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "Apache-2.0" }
+keywords = ["ai", "agents", "llm", "security", "ci", "deployment-gate"]
+authors = [{ name = "AgentGuard" }]
+# The CLI is a thin API client by design (see agentguard_cli/api.py): httpx is the only
+# runtime dependency. It deliberately does NOT pull in the control-plane server stack.
+dependencies = ["httpx>=0.27"]
+
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Security",
+    "Topic :: Software Development :: Quality Assurance",
+]
+
+[project.urls]
+Homepage = "https://github.com/Nagamiji/agentguard"
+Repository = "https://github.com/Nagamiji/agentguard"
+
+[project.scripts]
+agentguard = "agentguard_cli.main:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["agentguard_cli*", "agentguard_core*"]

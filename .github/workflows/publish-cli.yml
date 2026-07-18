@@ -1,0 +1,75 @@
+name: Publish CLI
+
+# Publishes the `agentguard` CLI distribution (cli/) to PyPI on a cli-v* tag.
+#
+# Uses PyPI Trusted Publishing (OIDC) — no API token is stored. One-time setup on PyPI:
+# add a trusted publisher to the `agentguard` project pointing at this repo, workflow
+# `publish-cli.yml`, environment `pypi`. Until that is configured the publish step is the
+# only thing that fails; the build + install smoke test still run and gate the tag.
+#
+# Tag namespace: `cli-v*` (e.g. cli-v0.1.0), kept separate from the platform's own
+# versioning so the two release cadences never collide. The tag version must match
+# cli/pyproject.toml's version (verified below).
+
+on:
+  push:
+    tags: ["cli-v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build + smoke-test wheel
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Verify tag matches cli/pyproject.toml version
+        if: startsWith(github.ref, 'refs/tags/cli-v')
+        run: |
+          TAG="${GITHUB_REF_NAME#cli-v}"
+          PROJ=$(python -c "import tomllib;print(tomllib.load(open('cli/pyproject.toml','rb'))['project']['version'])")
+          echo "tag=$TAG project=$PROJ"
+          test "$TAG" = "$PROJ" || { echo "::error::tag cli-v$TAG != cli/pyproject.toml $PROJ"; exit 1; }
+
+      - name: Build sdist + wheel
+        run: |
+          python -m pip install --upgrade build
+          python -m build cli/
+
+      - name: Install into a clean venv and smoke-test
+        run: |
+          python -m venv /tmp/clivenv
+          /tmp/clivenv/bin/pip install cli/dist/agentguard-*.whl
+          /tmp/clivenv/bin/agentguard --help
+          # The CLI must stay lightweight: the server stack must NOT be pulled in.
+          if /tmp/clivenv/bin/pip show fastapi >/dev/null 2>&1; then
+            echo "::error::agentguard wheel pulled in fastapi — it must stay a thin client"
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: agentguard-dist
+          path: cli/dist/
+
+  publish:
+    name: Publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/cli-v')
+    environment: pypi
+    permissions:
+      id-token: write # OIDC for Trusted Publishing
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: agentguard-dist
+          path: dist/
+      - name: Publish
+        uses: pypa/gh-action-pypi-publish@release/v1
