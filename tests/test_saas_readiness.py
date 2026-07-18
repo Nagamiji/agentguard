@@ -45,4 +45,8 @@ def test_customer_onboarding_flow_and_agent_limit() -> None:
         headers=_auth(key),
     )
     assert resp_agent_fail.status_code == 402
-    assert "Agent limit reached" in resp_agent_fail.json()["detail"]
+    # Problem Details envelope: the message lives in `title` / `error.message`,
+    # not `detail` (src/keel/errors.py).
+    body_fail = resp_agent_fail.json()
+    assert "Agent limit reached" in body_fail["title"]
+    assert body_fail["error"]["code"] == "PAYMENT_REQUIRED"
