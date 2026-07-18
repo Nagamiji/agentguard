@@ -28,7 +28,7 @@ Pass your API key in the `Authorization` header:
 
 ```bash
 curl https://api.agentguard.dev/v1/agents \
-  -H "Authorization: Bearer ag_your_key_here"
+  -H "Authorization: Bearer $AGENTGUARD_API_KEY"
 ```
 
 ---
@@ -43,14 +43,67 @@ curl https://api.agentguard.dev/v1/agents \
 | `scan` | Execute evaluation scans |
 | `admin` | Key management, org lifecycle controls |
 
-Create a scoped key:
+Create a scoped key with explicit scopes:
 
 ```bash
 curl -X POST https://api.agentguard.dev/v1/orgs/keys \
-  -H "Authorization: Bearer ag_admin_key" \
+  -H "Authorization: Bearer $AGENTGUARD_ADMIN_KEY" \
   -H "Content-Type: application/json" \
   -d '{"name": "ci-scan-key", "scopes": ["scan", "read"]}'
 ```
+
+Managing scopes by hand is error-prone, so key creation also accepts a **role** — pass
+`role` *or* `scopes`, never both. Omitting both keeps the historical default of a
+full-access (`*`) key.
+
+---
+
+## Roles
+
+Roles are named presets over the scope vocabulary above. `GET /v1/roles` returns the live
+catalog.
+
+| Role | Scopes | Use for |
+|:-----|:-------|:--------|
+| `owner` | `*` | The org's first/root key |
+| `admin` | `read, write, scan, admin` | Team leads managing keys + org |
+| `developer` | `read, write, scan` | Engineers building and testing agents |
+| `ci` | `read, scan` | GitHub Actions / CI — run scans, read verdicts, nothing else |
+| `viewer` | `read` | Dashboards, auditors, read-only integrations |
+
+```bash
+# A least-privilege CI key that expires in 90 days
+curl -X POST https://api.agentguard.dev/v1/orgs/keys \
+  -H "Authorization: Bearer $AGENTGUARD_ADMIN_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "github-actions", "role": "ci", "expires_in_days": 90}'
+```
+
+---
+
+## Expiry & lifecycle
+
+- `expires_in_days` (1–3650) sets an optional expiry; an expired key authenticates as
+  `401 API key has expired`.
+- Each key tracks `created_by` (the key that issued it), `last_used_at` (refreshed at most
+  once per minute), and a derived `status` of `active` / `expired` / `revoked`, all visible
+  via `GET /v1/orgs/keys`.
+
+---
+
+## Audit trail
+
+Every key issue/revoke and org activate/suspend is recorded to a tenant-scoped, append-only
+audit log. Read it (admin scope) with:
+
+```bash
+curl https://api.agentguard.dev/v1/audit-events \
+  -H "Authorization: Bearer $AGENTGUARD_ADMIN_KEY"
+```
+
+Each event carries `actor` (the acting key prefix), `action` (e.g. `api_key.issued`),
+`resource_type`/`resource_id`, `metadata`, and `created_at`. The log is RLS-isolated, so an
+org only ever sees its own trail.
 
 ---
 
@@ -60,7 +113,7 @@ Revoke a key (it immediately stops working):
 
 ```bash
 curl -X DELETE https://api.agentguard.dev/v1/orgs/keys/{key_id} \
-  -H "Authorization: Bearer ag_admin_key"
+  -H "Authorization: Bearer $AGENTGUARD_ADMIN_KEY"
 ```
 
 ---
@@ -69,7 +122,7 @@ curl -X DELETE https://api.agentguard.dev/v1/orgs/keys/{key_id} \
 
 | HTTP Status | Error Code | Meaning |
 |:------------|:-----------|:--------|
-| 401 | `UNAUTHORIZED` | Missing, malformed, or invalid key |
+| 401 | `UNAUTHORIZED` | Missing, malformed, invalid, or **expired** key |
 | 403 | `FORBIDDEN` | Key exists but lacks required scope, or org is suspended |
 | 402 | `PAYMENT_REQUIRED` | Plan usage limit reached |
 
