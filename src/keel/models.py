@@ -31,6 +31,16 @@ class Organization(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="active",
+        # Valid lifecycle states.
+        # pending  → created but not yet activated (e.g. awaiting email verification)
+        # active   → normal operation
+        # suspended → access blocked by admin; can be reactivated
+        # deleted  → soft-deleted; NOT purged, retained for audit trail
+    )
     plan_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("plans.id", ondelete="SET NULL"),

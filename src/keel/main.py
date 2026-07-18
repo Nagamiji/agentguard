@@ -2,6 +2,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from keel import __version__
@@ -13,7 +14,11 @@ from keel.api.orgs import router as orgs_router
 from keel.api.policies import router as policies_router
 from keel.api.projects import router as projects_router
 from keel.config import settings
-from keel.errors import http_exception_handler, unhandled_exception_handler
+from keel.errors import (
+    http_exception_handler,
+    unhandled_exception_handler,
+    validation_exception_handler,
+)
 from keel.logging import configure_logging
 from keel.middleware import ContextMiddleware
 
@@ -36,6 +41,7 @@ def create_app() -> FastAPI:
     app = FastAPI(title="Keel Platform", version=__version__, lifespan=lifespan)
     app.add_middleware(ContextMiddleware)
     app.add_exception_handler(StarletteHTTPException, http_exception_handler)
+    app.add_exception_handler(RequestValidationError, validation_exception_handler)
     app.add_exception_handler(Exception, unhandled_exception_handler)
     app.include_router(health_router)
     app.include_router(orgs_router)

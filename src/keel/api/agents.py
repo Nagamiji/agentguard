@@ -12,6 +12,7 @@ from keel.fingerprint import (
     compute_fingerprint,
     find_secrets,
 )
+from keel.metrics import metrics
 from keel.models import Agent, AgentAlias, AgentVersion
 from keel.schemas import (
     AgentCreate,
@@ -71,6 +72,7 @@ def create_agent(payload: AgentCreate, org_id: WriteOrg, db: DbSession) -> Agent
             or 0
         )
         if plan.agent_limit >= 0 and agent_count >= plan.agent_limit:
+            metrics.agentguard_usage_limit_hits.inc(labels={"limit_type": "agent"})
             msg = (
                 f"Agent limit reached ({plan.agent_limit}) for plan '{plan.name}'. "
                 "Please upgrade to register more agents."

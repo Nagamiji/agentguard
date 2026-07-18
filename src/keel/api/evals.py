@@ -165,6 +165,7 @@ def create_run(
             or 0
         )
         if plan.scan_limit >= 0 and scan_count >= plan.scan_limit:
+            metrics.agentguard_usage_limit_hits.inc(labels={"limit_type": "scan"})
             msg = (
                 f"Scan limit reached ({plan.scan_limit}) for plan '{plan.name}'. "
                 "Please upgrade to run more scans."
@@ -297,6 +298,14 @@ def create_run(
         duration_sec,
         labels={"runner": payload.runner, "environment": payload.environment or "none"},
     )
+    # Beta metrics: agentguard_scan_* counters
+    metrics.agentguard_scan_total.inc(
+        labels={"decision": str(gate_decision), "environment": payload.environment or "none"}
+    )
+    if str(gate_decision).upper() == "BLOCKED":
+        metrics.agentguard_scan_failures_total.inc(
+            labels={"environment": payload.environment or "none"}
+        )
 
     rows = [
         EvalResult(

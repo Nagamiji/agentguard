@@ -24,6 +24,10 @@ def require_permission(*required_scopes: str) -> Any:
                 status.HTTP_401_UNAUTHORIZED, "Missing or malformed Authorization header"
             )
         token = authorization.split(" ", 1)[1].strip()
+        if not token:
+            raise HTTPException(
+                status.HTTP_401_UNAUTHORIZED, "Missing or malformed Authorization header"
+            )
 
         api_key = db.execute(
             select(ApiKey).where(
@@ -33,6 +37,16 @@ def require_permission(*required_scopes: str) -> Any:
         ).scalar_one_or_none()
         if api_key is None:
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid or revoked API key")
+
+        # Organization lifecycle check: suspended orgs are completely blocked.
+        from keel.models import Organization
+
+        org = db.get(Organization, api_key.organization_id)
+        if org is not None and org.status == "suspended":
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN,
+                "Organization is suspended. Contact support to reactivate your account.",
+            )
 
         # Scope check: if '*' is present, all scopes are allowed.
         # Otherwise, the key must have at least one of the required_scopes (if any are specified).
