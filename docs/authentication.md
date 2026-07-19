@@ -37,7 +37,7 @@ curl https://api.agentguard.dev/v1/agents \
 
 | Scope | Access |
 |:------|:-------|
-| `*` | Full access (default for onboarding key) |
+| `*` | Full access (the `owner` role; granted only by a caller that already holds `*`) |
 | `read` | Read-only access to agents, runs, policies |
 | `write` | Create/update agents and manifests |
 | `scan` | Execute evaluation scans |
@@ -53,8 +53,11 @@ curl -X POST https://api.agentguard.dev/v1/orgs/keys \
 ```
 
 Managing scopes by hand is error-prone, so key creation also accepts a **role** — pass
-`role` *or* `scopes`, never both. Omitting both keeps the historical default of a
-full-access (`*`) key.
+`role` *or* `scopes`, never both, and **not neither**: a request with no `role` and no
+`scopes` is rejected `422` (a key is never granted implicit full access), as is an empty
+`scopes: []`. A key can also never be minted with more authority than the caller who
+mints it — requesting a scope you do not hold (e.g. an `admin` key asking for `*`) is
+rejected `403`.
 
 ---
 

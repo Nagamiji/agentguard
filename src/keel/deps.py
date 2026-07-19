@@ -85,6 +85,9 @@ def require_permission(*required_scopes: str) -> Any:
         # the secret. request.state survives from this dependency into the handler (a shared
         # per-request object), unlike a contextvar set inside a threadpool-run dependency.
         request.state.actor = api_key.prefix
+        # Expose the caller's scopes so endpoints can enforce delegation boundaries
+        # (a key may never grant more than its creator holds) without a second key lookup.
+        request.state.scopes = list(key_scopes)
 
         from keel.context import set_org_id
 

@@ -77,10 +77,11 @@ class OrgBootstrapOut(BaseModel):
 class ApiKeyCreate(BaseModel):
     """Create a scoped API key.
 
-    Supply *either* a named `role` (owner/admin/developer/ci/viewer) or an explicit
-    `scopes` list — not both. Omitting both keeps the historical default of a full-access
-    key, so existing callers are unaffected; new callers should pass a role for least
-    privilege. `expires_in_days` optionally sets an expiry.
+    Supply *either* a named `role` (owner/admin/developer/ci/viewer) or an explicit,
+    non-empty `scopes` list — not both, and not neither. Omitting both is rejected (422):
+    a key is never minted with implicit authority. `expires_in_days` optionally sets an
+    expiry. The delegating caller's own scopes further bound what may be granted (see
+    `undelegatable_scopes` / the issue-key endpoint) — a key can never exceed its creator.
     """
 
     name: str = Field(default="default", min_length=1, max_length=200)
@@ -93,6 +94,10 @@ class ApiKeyCreate(BaseModel):
     def validate_scopes(cls, v: list[str] | None) -> list[str] | None:
         if v is None:
             return None
+        if len(v) == 0:
+            # An empty scope list is ambiguous (read-only? broken request? placeholder?)
+            # and grants nothing useful — fail closed rather than mint a zero-access key.
+            raise ValueError("'scopes' must not be empty — pass a 'role' or at least one scope")
         for s in v:
             if s not in VALID_SCOPES:
                 raise ValueError(f"Invalid scope '{s}', must be one of {sorted(VALID_SCOPES)}")
@@ -112,8 +117,11 @@ class ApiKeyCreate(BaseModel):
         if self.role is not None:
             self.scopes = scopes_for_role(self.role)
         elif self.scopes is None:
-            # Backward-compatible default: a full-access key.
-            self.scopes = ["*"]
+            # No implicit privilege: a key minted "just with a name" would silently grant
+            # everything (including any scope added in the future). Require an explicit choice.
+            raise ValueError(
+                "Provide a 'role' or explicit 'scopes' — a key is never granted implicit access"
+            )
         return self
 
 

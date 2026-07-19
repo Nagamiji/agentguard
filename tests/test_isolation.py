@@ -85,7 +85,9 @@ def test_invalid_key_is_rejected() -> None:
 
 def test_revoked_key_is_rejected() -> None:
     _, key = _bootstrap("org-revoke")
-    issued = client.post("/v1/orgs/keys", json={"name": "temp"}, headers=_auth(key))
+    issued = client.post(
+        "/v1/orgs/keys", json={"name": "temp", "role": "viewer"}, headers=_auth(key)
+    )
     assert issued.status_code == 201
     temp_key = issued.json()["api_key"]
     key_id = issued.json()["key"]["id"]
@@ -98,7 +100,9 @@ def test_revoked_key_is_rejected() -> None:
 def test_cannot_revoke_another_orgs_key() -> None:
     _, key_a = _bootstrap("org-x")
     _, key_b = _bootstrap("org-y")
-    issued = client.post("/v1/orgs/keys", json={"name": "victim"}, headers=_auth(key_b))
+    issued = client.post(
+        "/v1/orgs/keys", json={"name": "victim", "role": "viewer"}, headers=_auth(key_b)
+    )
     victim_id = issued.json()["key"]["id"]
 
     resp = client.delete(f"/v1/orgs/keys/{victim_id}", headers=_auth(key_a))

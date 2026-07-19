@@ -8,7 +8,7 @@ from keel.audit import record_audit_event
 from keel.deps import AdminOrg, DbSession
 from keel.models import ApiKey, Organization, Plan
 from keel.provisioning import provisioning_guard
-from keel.roles import scopes_for_role
+from keel.roles import scopes_for_role, undelegatable_scopes
 from keel.schemas import (
     ApiKeyCreate,
     ApiKeyIssued,
@@ -69,15 +69,30 @@ def issue_key(
     payload: ApiKeyCreate, request: Request, org_id: AdminOrg, db: DbSession
 ) -> ApiKeyIssued:
     actor = getattr(request.state, "actor", None)
+    # The schema's model_validator guarantees scopes are resolved (from role or explicit)
+    # or the request is rejected as 422 — so a None here would be an internal invariant
+    # break, not an implicit wildcard. Fail closed rather than mint anything.
+    scopes = payload.scopes
+    if scopes is None:  # pragma: no cover - unreachable while resolve_scopes holds
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, "Provide a 'role' or explicit 'scopes'"
+        )
+
+    # Delegation boundary: a caller can never mint a key with more authority than it holds.
+    caller_scopes = getattr(request.state, "scopes", [])
+    excess = undelegatable_scopes(caller_scopes, scopes)
+    if excess:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            f"Cannot grant scopes you do not hold: {sorted(excess)}",
+        )
+
     full_key, prefix, key_hash = generate_api_key()
     expires_at = (
         datetime.now(UTC) + timedelta(days=payload.expires_in_days)
         if payload.expires_in_days is not None
         else None
     )
-    # The schema's model_validator always resolves scopes (from role, explicit, or the
-    # default); the None-branch only exists to satisfy the type checker.
-    scopes = payload.scopes if payload.scopes is not None else ["*"]
     api_key = ApiKey(
         organization_id=org_id,
         name=payload.name,

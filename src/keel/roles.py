@@ -32,3 +32,21 @@ VALID_ROLES: frozenset[str] = frozenset(ROLE_SCOPES)
 def scopes_for_role(role: str) -> list[str]:
     """Expand a role name into its scope list. Caller validates membership first."""
     return list(ROLE_SCOPES[role])
+
+
+def undelegatable_scopes(creator_scopes: list[str], requested_scopes: list[str]) -> list[str]:
+    """Scopes in `requested` that `creator` may not grant — empty means fully delegatable.
+
+    Delegation boundary: a key can never be minted with more authority than the caller
+    who mints it. Wildcard-aware, over the flat scope vocabulary where `*` is the only
+    wildcard:
+      - a creator holding `*` can delegate any scope (returns []);
+      - otherwise every requested scope — *including `*` itself* — must be one the creator
+        explicitly holds, so an `admin` key (read/write/scan/admin) cannot mint an
+        `owner`/`*` key it does not itself possess.
+    Enforcement stays on scopes, matching `deps.py`, so the boundary is explainable
+    ("caller lacks 'admin'") and a role rename can never silently widen it.
+    """
+    if "*" in creator_scopes:
+        return []
+    return [s for s in requested_scopes if s not in creator_scopes]
