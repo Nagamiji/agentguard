@@ -52,6 +52,14 @@ class Settings(BaseSettings):
     rate_limit_general_per_minute: int = 100
     rate_limit_general_burst: int = 20
 
+    # --- tenant provisioning (S7) ---
+    # Shared secret gating the unauthenticated org/onboarding endpoints. When set, callers
+    # must present it as `X-Provisioning-Key`. When unset, provisioning is allowed only in
+    # dev (see keel/provisioning.py) and DISABLED in production — fail-closed by default.
+    onboarding_secret: str = ""
+    # Per-IP ceiling on org/onboarding creation. Fail-closed if the limiter store is down.
+    onboarding_rate_limit_per_hour: int = 10
+
 
 settings = Settings()
 
