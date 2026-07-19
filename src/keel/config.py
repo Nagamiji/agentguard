@@ -60,6 +60,14 @@ class Settings(BaseSettings):
     # Per-IP ceiling on org/onboarding creation. Fail-closed if the limiter store is down.
     onboarding_rate_limit_per_hour: int = 10
 
+    # Comma-separated IPs / CIDRs of proxies whose `X-Forwarded-For` we trust (e.g. the
+    # Cloudflare edge ranges or a load balancer). EMPTY BY DEFAULT: with no trusted proxy
+    # configured, the client identity is the direct TCP peer (`request.client.host`) and
+    # `X-Forwarded-For` is ignored entirely — a caller-controlled header must never set the
+    # rate-limit identity. Only when the request's peer matches an entry here is XFF walked
+    # (right-to-left, skipping trusted hops) to recover the real client. See keel/net.py.
+    trusted_proxies: str = ""
+
 
 settings = Settings()
 

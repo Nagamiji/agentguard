@@ -31,6 +31,7 @@ def restore_settings() -> Iterator[None]:
         settings.app_env,
         settings.rate_limit_enabled,
         settings.onboarding_rate_limit_per_hour,
+        settings.trusted_proxies,
     )
     try:
         yield
@@ -40,6 +41,7 @@ def restore_settings() -> Iterator[None]:
             settings.app_env,
             settings.rate_limit_enabled,
             settings.onboarding_rate_limit_per_hour,
+            settings.trusted_proxies,
         ) = saved
 
 
@@ -156,3 +158,71 @@ def test_onboarding_rate_limit_enforced(restore_settings: None) -> None:
     finally:
         # Don't leak a drained bucket to other tests that create orgs under rate limiting.
         get_redis_client().delete(bucket)
+
+
+# --- XFF trust boundary: a spoofed X-Forwarded-For must not bypass the limiter -----------
+# (Trusted-proxy recovery of the real client is unit-tested in tests/test_client_ip.py,
+# since the TestClient's peer host is "testclient", not a real IP that could be trusted.)
+
+
+def test_spoofed_xff_cannot_bypass_onboarding_rate_limit(restore_settings: None) -> None:
+    try:
+        get_redis_client().ping()
+    except Exception:
+        pytest.skip("Redis not available")
+
+    settings.onboarding_secret = ""
+    settings.app_env = "dev"
+    settings.rate_limit_enabled = True
+    settings.trusted_proxies = ""  # no trusted proxy → identity is the peer, XFF ignored
+    settings.onboarding_rate_limit_per_hour = 2  # 3rd request in the window is blocked
+
+    bucket = "rate_limit:onboarding:testclient"
+    get_redis_client().delete(bucket)
+    try:
+        # Rotate the X-Forwarded-For header on every request — the classic bypass attempt.
+        codes = [
+            client.post(
+                "/v1/orgs",
+                json={"name": f"xff-{uuid.uuid4().hex[:6]}"},
+                headers={"X-Forwarded-For": f"10.9.9.{i}"},
+            ).status_code
+            for i in range(3)
+        ]
+        # The identity stayed the direct peer, so rotating XFF did NOT mint fresh buckets.
+        assert codes == [201, 201, 429], codes
+    finally:
+        get_redis_client().delete(bucket)
+
+
+def test_client_identity_is_stable_across_xff_values(restore_settings: None) -> None:
+    """The rate-limit key is the peer regardless of XFF: only the 'testclient' bucket moves."""
+    try:
+        get_redis_client().ping()
+    except Exception:
+        pytest.skip("Redis not available")
+
+    settings.onboarding_secret = ""
+    settings.app_env = "dev"
+    settings.rate_limit_enabled = True
+    settings.trusted_proxies = ""
+    settings.onboarding_rate_limit_per_hour = 5
+
+    redis = get_redis_client()
+    peer_bucket = "rate_limit:onboarding:testclient"
+    spoof_bucket = "rate_limit:onboarding:203.0.113.42"
+    redis.delete(peer_bucket)
+    redis.delete(spoof_bucket)
+    try:
+        resp = client.post(
+            "/v1/orgs",
+            json={"name": f"stable-{uuid.uuid4().hex[:6]}"},
+            headers={"X-Forwarded-For": "203.0.113.42"},
+        )
+        assert resp.status_code == 201
+        # The peer's bucket was consumed; the XFF-named bucket was never created.
+        assert redis.exists(peer_bucket) == 1
+        assert redis.exists(spoof_bucket) == 0
+    finally:
+        redis.delete(peer_bucket)
+        redis.delete(spoof_bucket)
