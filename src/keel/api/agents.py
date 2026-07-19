@@ -1,10 +1,11 @@
 import re
 import uuid
 
-from fastapi import APIRouter, Response, status
+from fastapi import APIRouter, Request, Response, status
 from fastapi.exceptions import HTTPException
 from sqlalchemy import func, select
 
+from keel.audit import record_audit_event
 from keel.deps import DbSession, ReadOrg, WriteOrg
 from keel.fingerprint import (
     FINGERPRINT_ALGO,
@@ -239,6 +240,7 @@ def upsert_alias(
     agent_id: uuid.UUID,
     name: str,
     payload: AliasUpsert,
+    request: Request,
     org_id: WriteOrg,
     db: DbSession,
 ) -> AliasOut:
@@ -261,6 +263,12 @@ def upsert_alias(
         select(AgentAlias).where(AgentAlias.agent_id == agent.id, AgentAlias.name == name)
     ).scalar_one_or_none()
 
+    # Capture what the alias pointed at BEFORE reassigning — repointing a deploy alias is a
+    # security-relevant change (it moves which version is "live"), so the audit records the
+    # move, not just the new target.
+    created = alias is None
+    previous_version_id = None if alias is None else str(alias.version_id)
+
     if alias is None:
         alias = AgentAlias(
             organization_id=org_id,
@@ -272,6 +280,22 @@ def upsert_alias(
     else:
         alias.version_id = version.id
 
+    db.flush()  # assign alias.id for a freshly-created alias before the audit record
+    record_audit_event(
+        db,
+        organization_id=org_id,
+        actor=getattr(request.state, "actor", None),
+        action="agent.alias_set",
+        resource_type="agent_alias",
+        resource_id=str(alias.id),
+        metadata={
+            "agent_id": str(agent.id),
+            "alias_name": name,
+            "version_id": str(version.id),
+            "previous_version_id": previous_version_id,
+            "created": created,
+        },
+    )
     db.commit()
     return AliasOut.model_validate(alias)
 

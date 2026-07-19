@@ -1,6 +1,7 @@
 import time
 import uuid
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
+from typing import Any
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -15,6 +16,23 @@ from keel.context import (
     set_run_id,
 )
 from keel.metrics import metrics
+
+
+def metric_path_label(path: str, path_params: Mapping[str, Any], matched: bool) -> str:
+    """Low-cardinality label for the `path` metric dimension.
+
+    A raw request path carries IDs (`/v1/agents/<uuid>/gate`), so using it verbatim as a
+    Prometheus label makes the time-series set unbounded. Collapse each matched path-param
+    value back to its `{name}` placeholder (segment-wise, so a value can never be replaced
+    inside a static segment). Unmatched requests (404s — a scanner can invent infinite
+    paths) collapse to a single `"unmatched"` bucket; matched paths with no params are
+    already static, so they pass through unchanged.
+    """
+    if path_params:
+        value_to_key = {str(v): k for k, v in path_params.items()}
+        segments = path.split("/")
+        return "/".join(f"{{{value_to_key[s]}}}" if s in value_to_key else s for s in segments)
+    return path if matched else "unmatched"
 
 
 class ContextMiddleware(BaseHTTPMiddleware):
@@ -42,15 +60,22 @@ class ContextMiddleware(BaseHTTPMiddleware):
         try:
             response = await call_next(request)
             duration = time.perf_counter() - start_time
+            # Routing runs downstream of this middleware but mutates the *same* scope dict,
+            # so the matched route's path_params/endpoint are readable here after call_next.
+            path_label = metric_path_label(
+                request.url.path,
+                request.scope.get("path_params") or {},
+                request.scope.get("endpoint") is not None,
+            )
             metrics.http_requests_total.inc(
                 labels={
                     "method": request.method,
-                    "path": request.url.path,
+                    "path": path_label,
                     "status": str(response.status_code),
                 }
             )
             metrics.http_request_duration_seconds.observe(
-                duration, labels={"method": request.method, "path": request.url.path}
+                duration, labels={"method": request.method, "path": path_label}
             )
             response.headers["X-Request-ID"] = request_id
             return response

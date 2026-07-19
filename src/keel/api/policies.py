@@ -1,11 +1,12 @@
 import uuid
 
-from fastapi import APIRouter, Query, Response, status
+from fastapi import APIRouter, Query, Request, Response, status
 from fastapi.exceptions import HTTPException
 from sqlalchemy import select
 
 from keel.api.lookups import get_agent_or_404
 from keel.api.policy_service import effective_policy
+from keel.audit import record_audit_event
 from keel.deps import DbSession, ReadOrg, WriteOrg
 from keel.models import AgentVersion, Policy, PolicyVersion
 from keel.policy import PolicyError, fingerprint_rules, validate_rules
@@ -56,7 +57,9 @@ def _existing_policy(
 
 
 @router.post("/policies", response_model=PolicyCreated, status_code=status.HTTP_201_CREATED)
-def create_policy(payload: PolicyCreate, org_id: WriteOrg, db: DbSession) -> PolicyCreated:
+def create_policy(
+    payload: PolicyCreate, request: Request, org_id: WriteOrg, db: DbSession
+) -> PolicyCreated:
     scope_id = _resolve_scope_id(payload, org_id, db)
 
     try:
@@ -90,6 +93,21 @@ def create_policy(payload: PolicyCreate, org_id: WriteOrg, db: DbSession) -> Pol
         note=payload.note,
     )
     db.add(version)
+    record_audit_event(
+        db,
+        organization_id=org_id,
+        actor=getattr(request.state, "actor", None),
+        action="policy.created",
+        resource_type="policy",
+        resource_id=str(policy.id),
+        metadata={
+            "scope_type": payload.scope_type,
+            "scope_id": str(scope_id),
+            "environment": payload.environment,
+            "name": payload.name,
+            "fingerprint": version.fingerprint,
+        },
+    )
     db.commit()
 
     # Built from held objects, not re-queried (the tenant GUC is discarded by commit — see
@@ -107,6 +125,7 @@ def create_policy(payload: PolicyCreate, org_id: WriteOrg, db: DbSession) -> Pol
 def add_policy_version(
     policy_id: uuid.UUID,
     payload: PolicyVersionCreate,
+    request: Request,
     org_id: WriteOrg,
     db: DbSession,
     response: Response,
@@ -147,6 +166,22 @@ def add_policy_version(
         note=payload.note,
     )
     db.add(version)
+    db.flush()  # assign version.id (uuid default lands at INSERT) before the audit record
+    # Only new versions reach here — the dedupe path above returns 200 without a write, so
+    # it must not produce an audit event.
+    record_audit_event(
+        db,
+        organization_id=org_id,
+        actor=getattr(request.state, "actor", None),
+        action="policy.version_created",
+        resource_type="policy",
+        resource_id=str(policy.id),
+        metadata={
+            "version_id": str(version.id),
+            "sequence_number": version.sequence_number,
+            "fingerprint": fingerprint,
+        },
+    )
     db.commit()
     response.status_code = status.HTTP_201_CREATED
     return PolicyVersionOut.model_validate(version)

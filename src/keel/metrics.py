@@ -189,10 +189,6 @@ class MetricsRegistry:
             "Total number of AgentGuard scans that ended in a BLOCKED decision.",
             ["environment"],
         )
-        self.agentguard_active_organizations = Gauge(
-            "agentguard_active_organizations",
-            "Number of organizations with active status.",
-        )
         self.agentguard_usage_limit_hits = Counter(
             "agentguard_usage_limit_hits",
             "Number of requests rejected due to plan usage limits.",
@@ -210,7 +206,6 @@ class MetricsRegistry:
         all_lines.extend(self.scenarios_failed_total.render())
         all_lines.extend(self.agentguard_scan_total.render())
         all_lines.extend(self.agentguard_scan_failures_total.render())
-        all_lines.extend(self.agentguard_active_organizations.render())
         all_lines.extend(self.agentguard_usage_limit_hits.render())
         return "\n".join(all_lines) + "\n"
 

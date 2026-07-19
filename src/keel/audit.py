@@ -33,7 +33,11 @@ def record_audit_event(
     the action it describes, so the two succeed or fail as a unit. RLS requires the request's
     org context (set in keel/deps.py) to already be bound, which it always is for an
     authenticated handler. `actor` comes from `request.state.actor` (the acting key prefix).
+    `request_id` is read from the request contextvar so callers need not thread it through;
+    it is NULL for audit writes with no request context (background jobs / CLI).
     """
+    from keel.context import get_request_id
+
     try:
         db.add(
             AuditEvent(
@@ -42,6 +46,7 @@ def record_audit_event(
                 action=action,
                 resource_type=resource_type,
                 resource_id=resource_id,
+                request_id=get_request_id(),
                 event_metadata=metadata or {},
             )
         )
