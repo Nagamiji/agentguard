@@ -22,7 +22,8 @@ agentguard scan --api-url https://your-host --agent my-bot --manifest manifest.j
 # exit 0 allowed · 20 blocked · 10 error · 30 unknown  (the CI contract)
 ```
 
-Full CLI docs: [`cli/README.md`](cli/README.md).
+Full CLI docs: [`cli/README.md`](cli/README.md). Packaging, release & Trusted-Publishing
+architecture: [`docs/pypi-cli-release-architecture.md`](docs/pypi-cli-release-architecture.md).
 
 ## Quickstart
 ```bash
