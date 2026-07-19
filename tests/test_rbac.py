@@ -303,6 +303,71 @@ def test_roles_catalog_endpoint() -> None:
     assert roles["owner"] == ["*"]
 
 
+# --- Key-scope hardening: no implicit privilege, empty rejected, delegation bounded ------
+
+
+def test_key_creation_without_role_or_scopes_is_rejected() -> None:
+    """A key minted 'just with a name' must not silently become full-access."""
+    _, master_key = _bootstrap()
+    resp = client.post("/v1/orgs/keys", json={"name": "nameonly"}, headers=_auth(master_key))
+    assert resp.status_code == 422
+    assert "role" in resp.text and "scopes" in resp.text
+    # And no key row was created for it.
+    keys = client.get("/v1/orgs/keys", headers=_auth(master_key)).json()
+    assert all(k["name"] != "nameonly" for k in keys)
+
+
+def test_key_creation_with_empty_scopes_is_rejected() -> None:
+    _, master_key = _bootstrap()
+    resp = client.post(
+        "/v1/orgs/keys", json={"name": "empty", "scopes": []}, headers=_auth(master_key)
+    )
+    assert resp.status_code == 422
+    assert "empty" in resp.text.lower()
+
+
+def test_no_implicit_wildcard_is_minted() -> None:
+    """The only routes to a '*' key are an explicit role='owner' / scopes=['*'] — and the
+    delegating caller must itself hold '*'. An admin key (no '*') cannot escalate."""
+    _, master_key = _bootstrap()  # bootstrap key is role=admin -> [read,write,scan,admin]
+    for body in ({"name": "sneak-owner", "role": "owner"}, {"name": "sneak-star", "scopes": ["*"]}):
+        resp = client.post("/v1/orgs/keys", json=body, headers=_auth(master_key))
+        assert resp.status_code == 403, resp.text
+        assert "do not hold" in resp.text
+
+
+def test_caller_cannot_grant_scope_it_does_not_hold() -> None:
+    """Delegation boundary: an admin-only key can mint another admin key but not a
+    write/read/scan key, since it does not itself hold those scopes."""
+    _, master_key = _bootstrap()
+    # An admin-only key: master holds 'admin', so it may delegate ['admin'].
+    resp = client.post(
+        "/v1/orgs/keys",
+        json={"name": "admin-only", "scopes": ["admin"]},
+        headers=_auth(master_key),
+    )
+    assert resp.status_code == 201, resp.text
+    admin_only = resp.json()["api_key"]
+
+    # It can reach the endpoint (has 'admin') and re-grant 'admin'...
+    assert (
+        client.post(
+            "/v1/orgs/keys",
+            json={"name": "child-admin", "scopes": ["admin"]},
+            headers=_auth(admin_only),
+        ).status_code
+        == 201
+    )
+    # ...but cannot grant scopes it does not hold.
+    escalation = client.post(
+        "/v1/orgs/keys",
+        json={"name": "child-write", "scopes": ["write", "admin"]},
+        headers=_auth(admin_only),
+    )
+    assert escalation.status_code == 403
+    assert "write" in escalation.text
+
+
 def test_audit_events_require_admin_scope() -> None:
     _, master_key = _bootstrap()
     resp = client.post(

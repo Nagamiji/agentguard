@@ -87,7 +87,9 @@ Bootstrap an org (legacy endpoint — prefer `/v1/onboarding`).
 
 ### `POST /v1/orgs/keys`
 
-Issue a scoped API key for the authenticated org.
+Issue a scoped API key for the authenticated org. Pass a `role` **or** an explicit,
+non-empty `scopes` list (never both, never neither — omitting both is `422`). The key may
+not exceed the caller's own scopes (`403` otherwise).
 
 **Body:**
 ```json
