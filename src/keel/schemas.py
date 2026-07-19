@@ -140,6 +140,7 @@ class AuditEventOut(BaseModel):
     action: str
     resource_type: str | None = None
     resource_id: str | None = None
+    request_id: str | None = None
     metadata: dict[str, Any] = Field(validation_alias="event_metadata")
     created_at: datetime
 

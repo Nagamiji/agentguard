@@ -485,6 +485,9 @@ class AuditEvent(Base):
     action: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     resource_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
     resource_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    # Correlates this row with the HTTP log line for the same request. Nullable: audit
+    # writes outside a request (background jobs / CLI) have no request id.
+    request_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     event_metadata: Mapped[dict[str, Any]] = mapped_column(
         "metadata", JSONB, nullable=False, default=dict
     )

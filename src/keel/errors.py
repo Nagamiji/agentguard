@@ -1,9 +1,12 @@
+import logging
 from typing import Any
 
 from fastapi import Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
+
+logger = logging.getLogger("keel.errors")
 
 PROBLEM_CONTENT_TYPE = "application/problem+json"
 
@@ -87,11 +90,25 @@ async def validation_exception_handler(request: Request, exc: Exception) -> JSON
 
 
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    request_id = getattr(request.state, "request_id", None)
+    # Log the failure server-side with the traceback and request context. This is the only
+    # place an unhandled 500 becomes visible to operators — the client only ever sees the
+    # generic body below. request_id is passed explicitly: this handler runs in the outer
+    # ServerErrorMiddleware, AFTER ContextMiddleware has reset the contextvars, so the
+    # ContextFilter can no longer supply it (an explicit `extra` wins over the filter).
+    # Only low-risk request metadata is logged — never headers, body, or query string
+    # (which may carry secrets). logging.error swallows any handler error internally, so it
+    # cannot turn one failure into two.
+    logger.error(
+        "unhandled_exception",
+        exc_info=exc,
+        extra={"request_id": request_id, "method": request.method, "path": request.url.path},
+    )
     # Never leak internals/stack traces to the client.
     return problem(
         status=500,
         title="Internal Server Error",
         detail="An unexpected error occurred.",
         instance=request.url.path,
-        request_id=getattr(request.state, "request_id", None),
+        request_id=request_id,
     )
