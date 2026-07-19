@@ -14,9 +14,10 @@ This guard closes that surface with two independent controls:
    store is unavailable: an abuse-prone anonymous endpoint must not fail open (contrast the
    authenticated scan limiter in keel/rate_limit.py, which fails open to avoid a tenant outage).
 
-IP note: the client address comes from `request.client` (or the first `X-Forwarded-For` hop).
-Without a trusted-proxy config, XFF is caller-controlled; the secret is the primary control and
-the rate limit is defence-in-depth.
+IP note: the client identity is the direct TCP peer (`request.client.host`) by default.
+`X-Forwarded-For` is caller-controlled and is trusted **only** when the peer is a configured
+trusted proxy (`KEEL_TRUSTED_PROXIES`) — otherwise a spoofed header could rotate the
+rate-limit key and bypass the limit. The trust logic lives in `keel/net.py`.
 """
 
 from __future__ import annotations
@@ -27,6 +28,7 @@ from fastapi import HTTPException, Request, status
 
 from keel.config import settings
 from keel.db import get_redis_client
+from keel.net import resolve_client_ip
 
 _PROD_ENVS = frozenset({"prod", "production", "staging"})
 
@@ -61,10 +63,12 @@ return {allowed, retry_after}
 
 
 def _client_ip(request: Request) -> str:
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.client.host if request.client else "unknown"
+    """Rate-limit identity: the direct peer, trusting XFF only behind a configured proxy."""
+    return resolve_client_ip(
+        peer=request.client.host if request.client else None,
+        forwarded_for=request.headers.get("x-forwarded-for"),
+        trusted_csv=settings.trusted_proxies,
+    )
 
 
 def _check_secret(request: Request) -> None:

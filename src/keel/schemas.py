@@ -98,10 +98,17 @@ class ApiKeyCreate(BaseModel):
             # An empty scope list is ambiguous (read-only? broken request? placeholder?)
             # and grants nothing useful — fail closed rather than mint a zero-access key.
             raise ValueError("'scopes' must not be empty — pass a 'role' or at least one scope")
+        # Validate, then de-duplicate while preserving first-seen order. A repeated scope
+        # (["read","read","write"]) is a benign client quirk, not an error — normalise it so
+        # the stored/enforced set is canonical and a duplicate can never distort delegation
+        # or the audit record. Invalid scopes are still rejected.
+        deduped: list[str] = []
         for s in v:
             if s not in VALID_SCOPES:
                 raise ValueError(f"Invalid scope '{s}', must be one of {sorted(VALID_SCOPES)}")
-        return v
+            if s not in deduped:
+                deduped.append(s)
+        return deduped
 
     @field_validator("role")
     @classmethod

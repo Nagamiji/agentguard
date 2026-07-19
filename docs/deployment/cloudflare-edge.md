@@ -83,3 +83,4 @@ To ensure clients cannot bypass the Cloudflare Gateway and hit the backend direc
 
 1. **IP Whitelisting**: Restrict backend inbound network access to Cloudflare's published IP ranges.
 2. **Origin Header Token (Tunneling)**: Configure a shared secret header (e.g. `X-Origin-Token`). The Worker injects it, and FastAPI's middleware validates it, rejecting requests missing the token.
+3. **Trusted-proxy allow-list for client IP**: The per-IP provisioning rate limiter derives the client identity from the direct TCP peer by default and **ignores `X-Forwarded-For` unless the peer is a configured trusted proxy** (`keel/net.py`). Set `KEEL_TRUSTED_PROXIES` to the Cloudflare edge ranges (or your load-balancer CIDRs) so the real client IP is recovered from `X-Forwarded-For`; leave it empty for a directly-exposed backend. Without this, a spoofed `X-Forwarded-For` cannot rotate the rate-limit key — it is simply not believed.

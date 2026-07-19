@@ -377,3 +377,42 @@ def test_audit_events_require_admin_scope() -> None:
     )
     viewer_key = resp.json()["api_key"]
     assert client.get("/v1/audit-events", headers=_auth(viewer_key)).status_code == 403
+
+
+# --- scope de-duplication ----------------------------------------------------------------
+
+
+def test_duplicate_scopes_normalize_on_key_creation() -> None:
+    """Repeated scopes are canonicalised, not rejected — the stored set has no duplicates."""
+    _, master_key = _bootstrap()
+    resp = client.post(
+        "/v1/orgs/keys",
+        json={"name": "dupe-scopes", "scopes": ["read", "read", "write"]},
+        headers=_auth(master_key),
+    )
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["key"]["scopes"] == ["read", "write"]
+
+
+def test_deduplicated_key_enforces_exactly_its_scopes() -> None:
+    """Normalisation does not change enforcement: a deduped read/write key reads and writes
+    but cannot scan or manage keys."""
+    _, master_key = _bootstrap()
+    resp = client.post(
+        "/v1/orgs/keys",
+        json={"name": "dupe-enforce", "scopes": ["write", "write", "read"]},
+        headers=_auth(master_key),
+    )
+    assert resp.status_code == 201, resp.text
+    key = resp.json()["api_key"]
+    # read + write present…
+    assert client.get("/v1/agents", headers=_auth(key)).status_code == 200
+    created = client.post("/v1/agents", json={"name": "Dedup Bot"}, headers=_auth(key))
+    assert created.status_code == 201
+    # …admin absent → key management forbidden.
+    assert (
+        client.post(
+            "/v1/orgs/keys", json={"name": "n", "role": "viewer"}, headers=_auth(key)
+        ).status_code
+        == 403
+    )
