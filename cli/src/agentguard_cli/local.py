@@ -32,6 +32,7 @@ from agentguard_cli.proof import (
     StructuralCheck,
     compute_evidence_digest,
 )
+from agentguard_cli.redact import REDACTION_POLICY_VERSION, Redactor
 from agentguard_cli.scenarios import BUNDLED_SCENARIOS, SCENARIO_LIB_VERSION, LocalScenario
 from agentguard_core.fingerprint import (
     FINGERPRINT_ALGO,
@@ -70,6 +71,8 @@ class LocalOutcome:
     elapsed_ms: int = 0
     agent_name: str = ""
     tool_count: int = 0
+    # Carries what was scrubbed out of the proofs above. Never the scrubbed values.
+    redactor: Redactor = field(default_factory=Redactor)
 
 
 # -------------------------------------------------------------------------------------
@@ -184,6 +187,7 @@ def _run_scenario(
     *,
     mode: ExecutionMode,
     observed: dict[str, Any] | None = None,
+    redactor: Redactor | None = None,
 ) -> ProofObject:
     """Evaluate one scenario into a Proof Object.
 
@@ -191,6 +195,9 @@ def _run_scenario(
     static mode there is no live runner, so behavioural (`requires_live`) scenarios skip.
     Tests may drive the check logic by passing `mode="live"` with an `observed` output (or
     a scenario carrying `scripted_output`).
+
+    Order matters: checks run against the RAW capture so a leak cannot hide behind a
+    redaction token, and only the value stored on the Proof Object is scrubbed.
     """
     # Static mode cannot observe a live agent — behavioural scenarios are SKIPPED, not passed.
     if mode == "static" and scenario.requires_live:
@@ -210,6 +217,12 @@ def _run_scenario(
     failed = [r for r in results if not r["passed"]]
     primary = failed[0] if failed else results[0]
 
+    # From here on nothing raw is retained. `redactor` is never None in the scan path; the
+    # default keeps direct callers (tests, embedders) from silently persisting raw capture.
+    red = redactor if redactor is not None else Redactor()
+    observed_behavior = red.value({"text": text, "tool_calls": tool_calls})
+    primary = red.value(primary)
+
     return ProofObject(
         scenario_id=scenario.key,
         name=scenario.title,
@@ -219,7 +232,7 @@ def _run_scenario(
         attack_category=scenario.category,
         attack_input=str(scenario.input.get("user_message", "")),
         expected_behavior=scenario.expected_behavior,
-        observed_behavior={"text": text, "tool_calls": tool_calls},
+        observed_behavior=observed_behavior,
         result="fail" if failed else "pass",
         execution_mode=mode,
         confidence=scenario.confidence,
@@ -240,13 +253,18 @@ def do_local_scan(
     mode: ExecutionMode = "static",
     allow_incomplete_static: bool = False,
     observed_outputs: dict[str, dict[str, Any]] | None = None,
+    redact: bool = True,
 ) -> LocalOutcome:
     """Evaluate a manifest into Proof Objects. No network. No tools executed.
 
     `observed_outputs` maps scenario key -> {text, tool_calls} for live mode. `mode` is
     "static" for the offline scripted path; "live" is reserved for a real model runner.
+
+    `redact` defaults to True because the artifact this produces is meant to be committed.
+    Opting out is a decision the caller has to make explicitly, not one they can drift into.
     """
     started = time.perf_counter()
+    redactor = Redactor(enabled=redact)
 
     # Fail closed if a credential was accidentally pasted in.
     secrets = find_secrets(manifest)
@@ -273,10 +291,16 @@ def do_local_scan(
 
     tool_count = len(manifest.get("tools") or [])
     structural = _structural_checks(manifest)
+    # Derived from the manifest rather than from captured output, but written to the same
+    # committed file — so scrubbed here, at capture, like everything else that gets stored.
+    for check in structural:
+        check.detail = redactor.text(check.detail)
 
     observed_outputs = observed_outputs or {}
     proofs = [
-        _run_scenario(s, manifest, mode=mode, observed=observed_outputs.get(s.key))
+        _run_scenario(
+            s, manifest, mode=mode, observed=observed_outputs.get(s.key), redactor=redactor
+        )
         for s in BUNDLED_SCENARIOS
     ]
 
@@ -312,6 +336,7 @@ def do_local_scan(
         execution_mode=mode,
         fingerprint_algo=FINGERPRINT_ALGO,
         proof_objects=proofs,
+        redaction_policy=REDACTION_POLICY_VERSION if redact else None,
     )
 
     # Gate decision. Blocking failures win; otherwise mode-skips force INCOMPLETE unless
@@ -357,6 +382,7 @@ def do_local_scan(
         elapsed_ms=int((time.perf_counter() - started) * 1000),
         agent_name=agent_name or manifest.get("name", ""),
         tool_count=tool_count,
+        redactor=redactor,
     )
 
 
@@ -381,6 +407,7 @@ def local_report_dict(out: LocalOutcome) -> dict[str, Any]:
         "fingerprint": out.fingerprint,
         "evidence_digest": out.evidence_digest,
         "scenario_lib_version": out.scenario_lib_version,
+        "redaction": out.redactor.to_dict(),
         "coverage": out.coverage.to_dict() if out.coverage else None,
         "structural_checks": [c.to_dict() for c in out.structural_checks],
         "proofs": [p.to_dict() for p in out.proofs],

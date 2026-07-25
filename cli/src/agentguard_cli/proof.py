@@ -122,12 +122,18 @@ def compute_evidence_digest(
     execution_mode: ExecutionMode,
     fingerprint_algo: str,
     proof_objects: list[ProofObject],
+    redaction_policy: str | None = None,
 ) -> str:
     """A content/reproducibility digest over inputs AND outcomes.
 
     Same agent + same scenario library + same mode + same recorded outcomes => same digest.
     This is deliberately NOT a tamper seal (it is unsigned; an editor can recompute it).
     It answers "is this the same evidence?", not "has this been tampered with?".
+
+    The proof objects passed here are already redacted, so the digest covers the artifact a
+    reader actually holds and stays recomputable from it. `redaction_policy` names the rules
+    that produced them (None when redaction was disabled); without it, two runs scrubbed by
+    different pattern sets could collide and read as identical evidence.
     """
     outcomes = [
         {
@@ -144,6 +150,7 @@ def compute_evidence_digest(
             "scenario_lib_version": scenario_lib_version,
             "execution_mode": execution_mode,
             "fingerprint_algo": fingerprint_algo,
+            "redaction_policy": redaction_policy,
             "outcomes": outcomes,
         },
         sort_keys=True,

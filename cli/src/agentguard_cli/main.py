@@ -89,6 +89,15 @@ def _build_parser() -> argparse.ArgumentParser:
                 "because STATIC CHECK cannot run them (otherwise such a run exits 40)"
             ),
         )
+        s.add_argument(
+            "--no-redact",
+            action="store_true",
+            help=(
+                "write captured agent output verbatim into the report instead of masking "
+                "detected credentials and personal data. Reports are meant to be committed, "
+                "so redaction is on by default — this opts out of it"
+            ),
+        )
 
     rep = sub.add_parser("report", help="report the verdict for an already-evaluated fingerprint")
     add_api_args(rep)
@@ -247,6 +256,7 @@ def main(argv: list[str] | None = None) -> int:
                 agent_name=getattr(args, "agent", "") or "",
                 mode="static",
                 allow_incomplete_static=getattr(args, "allow_incomplete_static", False),
+                redact=not getattr(args, "no_redact", False),
             )
             _emit_local(local_out, args, manifest_path)
             return local_out.exit_code
@@ -300,6 +310,23 @@ def main(argv: list[str] | None = None) -> int:
 _RESULT_TAG = {"pass": "PASS", "fail": "FAIL", "skipped": "SKIP"}
 
 
+def _print_redaction(out: Any) -> None:
+    """State the redaction posture on every run, including when nothing matched.
+
+    Silence would be ambiguous: a reader could not tell a scrubbed report from an
+    unscrubbed one, which is the confusion this feature exists to remove.
+    """
+    red = out.redactor
+    if not red.enabled:
+        print("  Redaction:       OFF (--no-redact) ⚠  captured output stored verbatim")
+        return
+    if red.redacted_anything:
+        breakdown = ", ".join(f"{cat} ×{n}" for cat, n in sorted(red.counts.items()))
+        print(f"  Redaction:       ON — masked {breakdown}")
+    else:
+        print("  Redaction:       ON — no credentials or personal data matched")
+
+
 def _emit_local(out: Any, args: argparse.Namespace | None = None, manifest_path: str = "") -> None:
     """Render a LocalOutcome honestly, then write any requested machine artifacts.
 
@@ -307,6 +334,9 @@ def _emit_local(out: Any, args: argparse.Namespace | None = None, manifest_path:
     prefixes every finding line, skipped scenarios show why, and there is no "SAFE TO
     DEPLOY" banner — a STATIC CHECK cannot certify deployment.
     """
+    # Terminal output is transient and stays on the operator's own machine; the files this
+    # writes are the ones that get committed. Both are rendered from the same redacted
+    # objects anyway, so what is printed here is what lands in the report.
     from agentguard_cli.local import local_report_dict
 
     mode_tag = out.execution_mode.upper()  # STATIC | LIVE
@@ -371,11 +401,13 @@ def _emit_local(out: Any, args: argparse.Namespace | None = None, manifest_path:
     if out.evidence_digest:
         digest = out.evidence_digest[:23]
         print(f"  Evidence digest: {digest}...  (reproducibility, not tamper-proof)")
+    _print_redaction(out)
     print(f"  Time:            {out.elapsed_ms / 1000:.1f}s")
     print("─" * 48)
     print()
 
-    # Machine artifacts
+    # Machine artifacts — these are the files a team commits, so they carry the same
+    # redaction the summary above reports.
     if args is None:
         return
     report = local_report_dict(out)
