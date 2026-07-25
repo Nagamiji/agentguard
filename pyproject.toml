@@ -37,6 +37,11 @@ dev = [
     # because of our commits, not their release schedule. Bump these in their own PR.
     "ruff>=0.6,<0.13",
     "mypy>=1.11,<1.19",
+    # PyYAML is an OPTIONAL runtime dep of the CLI (a YAML manifest is supported, and the
+    # import is guarded with a clear install message) — so it is deliberately absent from
+    # cli/pyproject.toml. `mypy --strict` still needs its stubs to check that branch, and
+    # without them CI fails on a machine where the stubs merely happen to be installed.
+    "types-PyYAML>=6.0",
 ]
 
 [tool.setuptools]
