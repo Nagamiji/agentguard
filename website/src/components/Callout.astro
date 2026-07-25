@@ -1,0 +1,32 @@
+---
+interface Props {
+  tone?: 'info' | 'warn' | 'neutral';
+  title?: string;
+}
+const { tone = 'info', title } = Astro.props;
+---
+
+<aside class:list={['callout', `t-${tone}`]}>
+  <div class="bar" aria-hidden="true"></div>
+  <div class="body">
+    {title && <p class="ct-title">{title}</p>}
+    <div class="ct-text"><slot /></div>
+  </div>
+</aside>
+
+<style>
+  .callout {
+    display: flex;
+    gap: var(--sp-4);
+    padding: var(--sp-4) var(--sp-6);
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+  }
+  .bar { width: 3px; border-radius: var(--r-full); flex-shrink: 0; }
+  .t-info .bar { background: var(--info); }
+  .t-warn .bar { background: var(--warn); }
+  .t-neutral .bar { background: var(--border-strong); }
+  .ct-title { font-weight: 600; color: var(--text-hi); font-size: var(--fs-sm); margin-bottom: 2px; }
+  .ct-text { color: var(--text-mut); font-size: var(--fs-sm); }
+</style>

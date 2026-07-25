@@ -1,0 +1,62 @@
+---
+import CopyCommand from '../components/CopyCommand.astro';
+import CTAButton from '../components/CTAButton.astro';
+import VerdictBadge from '../components/VerdictBadge.astro';
+import { SITE } from '../data/product';
+---
+
+<section class="section get-started" id="get-started">
+  <div class="container">
+    <div class="gs-card" data-reveal>
+      <div class="gs-glimmer" aria-hidden="true"></div>
+      <div class="gs-inner">
+        <p class="eyebrow">Get started</p>
+        <h2>Put a gate in front of your agents.</h2>
+        <p class="gs-sub measure">
+          Install the CLI, generate a policy, and add one check to CI. Self-serve in minutes —
+          no console to log into, no agent tools ever executed.
+        </p>
+
+        <div class="gs-cta">
+          <CopyCommand command={SITE.installCmd} prompt="$" />
+          <div class="gs-btns">
+            <CTAButton href={SITE.docsUrl} variant="primary" size="lg">Read the docs</CTAButton>
+            <CTAButton href={SITE.github} variant="secondary" size="lg" external>Talk to engineering</CTAButton>
+          </div>
+        </div>
+
+        <p class="gs-foot">
+          <VerdictBadge decision="allowed" size="sm" />
+          <span>Most deploys pass. AgentGuard is there for the one that shouldn’t.</span>
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .gs-card {
+    position: relative;
+    overflow: hidden;
+    padding: clamp(var(--sp-12), 6vw, var(--sp-24)) clamp(var(--sp-6), 5vw, var(--sp-16));
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+  }
+  /* Static, single soft brand wash — not animated, not a gradient mesh. */
+  .gs-glimmer {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(60% 100% at 50% 0%, var(--brand-glow), transparent 70%);
+    pointer-events: none;
+  }
+  .gs-inner { position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; }
+  h2 { font-size: clamp(var(--fs-2xl), 4.5vw, var(--fs-4xl)); line-height: var(--lh-snug); margin-top: var(--sp-3); }
+  .gs-sub { margin: var(--sp-4) auto 0; color: var(--text-mut); font-size: var(--fs-md); }
+
+  .gs-cta { margin-top: var(--sp-8); display: flex; flex-direction: column; gap: var(--sp-4); align-items: center; width: 100%; max-width: 460px; }
+  .gs-cta > :global(.copycmd) { width: 100%; }
+  .gs-btns { display: flex; gap: var(--sp-3); flex-wrap: wrap; justify-content: center; }
+
+  .gs-foot { margin-top: var(--sp-8); display: inline-flex; align-items: center; gap: var(--sp-3); color: var(--text-mut); font-size: var(--fs-sm); flex-wrap: wrap; justify-content: center; }
+</style>

@@ -1,0 +1,73 @@
+---
+import SectionHeader from '../components/SectionHeader.astro';
+import PolicyCodeBlock from '../components/PolicyCodeBlock.astro';
+import SecurityCheckRow from '../components/SecurityCheckRow.astro';
+import { POLICY_JSON, MANIFEST_JSON, POLICY_TO_CHECK, CHECK_TYPES } from '../data/product';
+---
+
+<section class="section" id="policy">
+  <div class="container">
+    <SectionHeader
+      eyebrow="Policy-as-code"
+      title="Rules live in the repo. They compile into checks."
+      sub="Policy is a file you review, diff, and version — not a setting in a console. Each rule compiles deterministically into a check that is asserted on every simulated tool call."
+    />
+
+    <div class="pac-grid">
+      <div class="pac-code" data-reveal>
+        <PolicyCodeBlock code={POLICY_JSON} lang="json" filename="policy.json" />
+        <div class="compiles" aria-hidden="true">
+          <span class="cmp-line"></span>
+          <span class="cmp-label">compiles to</span>
+          <span class="cmp-line"></span>
+        </div>
+        <SecurityCheckRow
+          severity="HIGH"
+          checkType={POLICY_TO_CHECK.check.checkType}
+          detail={POLICY_TO_CHECK.check.detail}
+          tone="neutral"
+        />
+        <p class="pac-note">
+          The <code>max_tool_arg</code> rule above becomes a <code>tool_arg_limit</code> check.
+          When a simulated <code>issue_refund</code> exceeds 100, the verdict is <strong>BLOCKED</strong>.
+        </p>
+      </div>
+
+      <div class="pac-side" data-reveal style="--reveal-delay: 100ms">
+        <PolicyCodeBlock code={MANIFEST_JSON} lang="json" filename="manifest.json" />
+        <div class="checks-catalog">
+          <p class="cc-h">Deterministic checks available today</p>
+          <ul class="cc-list">
+            {CHECK_TYPES.map((c) => (
+              <li><code>{c.id}</code><span>{c.label}</span></li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .pac-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-8); align-items: start; }
+  .pac-code { display: flex; flex-direction: column; gap: var(--sp-4); }
+
+  .compiles { display: flex; align-items: center; gap: var(--sp-3); padding-inline: var(--sp-2); }
+  .cmp-line { height: 1px; flex: 1; background: var(--border); }
+  .cmp-label { font-family: var(--font-mono); font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: 0.06em; color: var(--brand); }
+
+  .pac-note { color: var(--text-mut); font-size: var(--fs-sm); }
+  .pac-note code { font-family: var(--font-mono); font-size: 0.92em; color: var(--code-key); }
+  .pac-note strong { color: var(--danger); font-weight: 700; font-family: var(--font-mono); }
+
+  .pac-side { display: flex; flex-direction: column; gap: var(--sp-6); }
+  .checks-catalog { padding: var(--sp-6); background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--r-md); }
+  .cc-h { font-family: var(--font-mono); font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-faint); margin-bottom: var(--sp-4); }
+  .cc-list { list-style: none; padding: 0; margin: 0; display: grid; gap: var(--sp-3); }
+  .cc-list li { display: grid; grid-template-columns: minmax(0, auto) 1fr; gap: var(--sp-3); align-items: baseline; font-size: var(--fs-sm); }
+  .cc-list code { color: var(--code-key); font-size: var(--fs-xs); white-space: nowrap; }
+  .cc-list span { color: var(--text-mut); }
+
+  @media (max-width: 860px) { .pac-grid { grid-template-columns: 1fr; gap: var(--sp-12); } }
+  @media (max-width: 480px) { .cc-list li { grid-template-columns: 1fr; gap: 2px; } }
+</style>

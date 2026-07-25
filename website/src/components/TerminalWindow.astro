@@ -1,0 +1,140 @@
+---
+// Renders a REAL agentguard CLI session (the product's actual surface).
+// Everything is selectable text; the type-out is cosmetic replay only — the
+// full, final output is in the DOM for no-JS and prefers-reduced-motion.
+interface Line { label: string; value: string; tone: string }
+interface Finding { severity: string; checkType: string; detail: string }
+interface Result {
+  banner: string;
+  lines: readonly Line[];
+  findings: readonly Finding[];
+  exitCode: number;
+}
+interface Props {
+  command: string;
+  result: Result;
+  title?: string;
+  showExit?: boolean;
+  typing?: boolean;
+}
+const { command, result, title = 'zsh — agentguard', showExit = true, typing = true } = Astro.props;
+---
+
+<div class="term" data-terminal={typing ? '' : undefined}>
+  <div class="term-bar">
+    <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+    <span class="term-title">{title}</span>
+    <span class="term-spacer" aria-hidden="true"></span>
+  </div>
+
+  <div class="term-scroll scroll-x">
+    <pre class="term-pre"><span class="ln cmd-ln"><span class="prompt">$</span> <code class="cmd" data-term-cmd={command}>{command}</code></span>
+<span class="term-body" data-term-body>
+<span class="ln banner">{result.banner}</span>
+{result.lines.map((l) => (
+  <span class="ln kv"><span class="k">  {l.label}:</span><span class:list={['v', `t-${l.tone}`]}>{l.value}</span></span>
+))}
+{result.findings.map((f) => (
+  <span class="ln finding"><span class="sev">[{f.severity}]</span> <span class="ftype">{f.checkType}</span>: {f.detail}</span>
+))}
+{showExit && (
+  <>
+<span class="ln cmd-ln"><span class="prompt">$</span> <code class="cmd">echo $?</code></span>
+<span class:list={['ln', 'exit', result.exitCode === 0 ? 't-success' : 't-danger']}>{result.exitCode}</span>
+  </>
+)}
+</span></pre>
+  </div>
+</div>
+
+<style>
+  .term {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    box-shadow: var(--elev-2);
+    overflow: hidden;
+    width: 100%;
+  }
+  .term-bar {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: 10px var(--sp-4);
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--border);
+  }
+  .dots { display: inline-flex; gap: 7px; }
+  .dots i { width: 11px; height: 11px; border-radius: var(--r-full); background: var(--border-strong); }
+  .dots i:nth-child(1) { background: #ff5f57; }
+  .dots i:nth-child(2) { background: #febc2e; }
+  .dots i:nth-child(3) { background: #28c840; }
+  .term-title {
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    color: var(--text-mut);
+    text-align: center;
+  }
+
+  .term-scroll { padding: var(--sp-4) var(--sp-6) var(--sp-6); }
+  .term-pre {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: var(--fs-sm);
+    line-height: 1.7;
+    color: var(--text);
+    white-space: pre;
+    tab-size: 2;
+  }
+  .ln { display: block; }
+  .prompt { color: var(--text-faint); user-select: none; }
+  .cmd { color: var(--text-hi); }
+  .banner { color: var(--text-hi); font-weight: 600; }
+  .kv .k { color: var(--text-mut); }
+  .kv .v { }
+  .v.t-danger { color: var(--danger); font-weight: 600; }
+  .v.t-success { color: var(--success); font-weight: 600; }
+  .v.t-mut { color: var(--text-faint); }
+  .v.t-text { color: var(--text); }
+
+  .finding { color: var(--text); }
+  .finding .sev { color: var(--danger); font-weight: 700; }
+  .finding .ftype { color: var(--code-key); }
+
+  .exit { font-weight: 700; }
+  .exit.t-danger { color: var(--danger); }
+  .exit.t-success { color: var(--success); }
+
+  /* Typing caret while the command types out. */
+  :global(html.js) .term.is-typing .cmd::after {
+    content: '';
+    display: inline-block;
+    width: 8px;
+    height: 1.05em;
+    margin-left: 1px;
+    translate: 0 2px;
+    background: var(--brand);
+    animation: blink 1s steps(1) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* Body reveals after the command finishes typing. Final state is default. */
+  @media (prefers-reduced-motion: no-preference) {
+    :global(html.js) .term[data-terminal] .term-body { opacity: 0; }
+    :global(html.js) .term[data-terminal] .term-body[data-run='true'] {
+      opacity: 1;
+      transition: opacity var(--dur-2) var(--ease-out);
+    }
+    :global(html.js) .term[data-terminal] .term-body[data-run='true'] .ln {
+      animation: lnin var(--dur-3) var(--ease-out) both;
+    }
+    :global(html.js) .term[data-terminal] .term-body[data-run='true'] .ln:nth-child(2) { animation-delay: 40ms; }
+    :global(html.js) .term[data-terminal] .term-body[data-run='true'] .ln:nth-child(3) { animation-delay: 100ms; }
+    :global(html.js) .term[data-terminal] .term-body[data-run='true'] .ln:nth-child(4) { animation-delay: 160ms; }
+    :global(html.js) .term[data-terminal] .term-body[data-run='true'] .ln:nth-child(5) { animation-delay: 220ms; }
+    :global(html.js) .term[data-terminal] .term-body[data-run='true'] .ln:nth-child(6) { animation-delay: 300ms; }
+    :global(html.js) .term[data-terminal] .term-body[data-run='true'] .ln:nth-child(n+7) { animation-delay: 380ms; }
+  }
+  @keyframes lnin { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+</style>

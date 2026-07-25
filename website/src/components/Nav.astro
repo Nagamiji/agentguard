@@ -1,0 +1,159 @@
+---
+import { SITE } from '../data/product';
+import CTAButton from './CTAButton.astro';
+import { useTranslations } from '../i18n/utils';
+
+const lang = Astro.currentLocale || 'en';
+const t = useTranslations(lang as any);
+
+const NAV_LINKS = [
+  { label: t('nav.product'), href: `/${lang === 'en' ? '' : lang + '/'}` },
+  { label: t('nav.howItWorks'), href: `/${lang === 'en' ? '' : lang + '/'}#how-it-works` },
+  { label: t('nav.docs'), href: SITE.docsUrl },
+  { label: t('nav.install'), href: `/${lang === 'en' ? '' : lang + '/'}#install` },
+];
+---
+
+<header class="nav" data-nav>
+  <div class="container nav-inner">
+    <a href={`/${lang === 'en' ? '' : lang + '/'}`} class="brand" aria-label={`${SITE.name} home`}>
+      <span class="brand-mark" aria-hidden="true">
+        <svg aria-hidden="true" viewBox="0 0 40 40" width="22" height="22" fill="none">
+          <path d="M 28 8 L 28 32" stroke="currentColor" stroke-width="4" stroke-linecap="round" />
+          <path d="M 20 20 L 28 20" stroke="currentColor" stroke-width="4" stroke-linecap="round" />
+          <circle cx="12" cy="20" r="4" fill="currentColor" />
+          <path d="M 12 8 L 4 20 L 12 32" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </span>
+      <span class="brand-word">Agent<span class="brand-guard">Guard</span></span>
+    </a>
+
+    <nav class="nav-links" aria-label="Primary">
+      {NAV_LINKS.map((l) => (
+        <a
+          href={l.href}
+          class="nav-link"
+          {...'external' in l && l.external ? { target: '_blank', rel: 'noopener noreferrer' } : {}}
+        >{l.label}</a>
+      ))}
+    </nav>
+
+    <div class="nav-actions">
+      <button class="theme-toggle" type="button" data-theme-toggle aria-label="Toggle color theme" aria-pressed="false">
+        <svg aria-hidden="true" class="i-sun" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+          <circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+        </svg>
+        <svg aria-hidden="true" class="i-moon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z" />
+        </svg>
+      </button>
+      <div class="cta-desktop">
+        <CTAButton href={SITE.github} variant="ghost" external>GitHub</CTAButton>
+      </div>
+      <select onchange="window.location.pathname = this.value" class="lang-select" aria-label="Select language">
+        <option value="/" selected={lang === 'en'}>English</option>
+        <option value="/km/" selected={lang === 'km'}>ខ្មែរ</option>
+        <option value="/ja/" selected={lang === 'ja'}>日本語</option>
+        <option value="/zh-cn/" selected={lang === 'zh-cn'}>简体中文</option>
+      </select>
+      <CTAButton href="#get-started" variant="primary">Get started</CTAButton>
+    </div>
+
+    <details class="menu">
+      <summary aria-label="Menu">
+        <svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
+      </summary>
+      <div class="menu-panel">
+        {NAV_LINKS.map((l) => (
+          <a href={l.href} {...'external' in l && l.external ? { target: '_blank', rel: 'noopener noreferrer' } : {}}>{l.label}</a>
+        ))}
+      </div>
+    </details>
+  </div>
+</header>
+
+<style>
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    border-bottom: 1px solid transparent;
+    transition: background var(--dur-2) var(--ease-out), border-color var(--dur-2) var(--ease-out), backdrop-filter var(--dur-2) var(--ease-out);
+  }
+  .nav.is-scrolled {
+    background: color-mix(in srgb, var(--bg) 78%, transparent);
+    backdrop-filter: saturate(1.4) blur(12px);
+    border-bottom-color: var(--border);
+  }
+  .nav-inner {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-6);
+    height: var(--nav-h);
+  }
+  .brand { display: inline-flex; align-items: center; gap: var(--sp-2); color: var(--text-hi); font-weight: 600; }
+  .brand:hover { color: var(--text-hi); }
+  .brand-mark { display: inline-grid; place-items: center; }
+  .brand-word { font-family: var(--font-display); font-size: var(--fs-md); letter-spacing: -0.02em; }
+  .brand-guard { color: var(--brand); }
+
+  .nav-links { display: flex; gap: var(--sp-2); margin-inline: auto; }
+  .nav-link {
+    padding: 6px var(--sp-3);
+    color: var(--text-mut);
+    font-size: var(--fs-sm);
+    font-weight: 500;
+    border-radius: 6px;
+    transition: color var(--dur-1) var(--ease-out), background var(--dur-1) var(--ease-out);
+  }
+  .nav-link:hover { color: var(--text-hi); background: var(--surface-1); }
+
+  .nav-actions { display: flex; align-items: center; gap: var(--sp-2); }
+  .theme-toggle {
+    display: grid;
+    place-items: center;
+    width: 38px; height: 38px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-mut);
+    border-radius: var(--r-sm);
+    transition: color var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out);
+  }
+  .theme-toggle:hover { color: var(--text-hi); border-color: var(--border-strong); }
+  .theme-toggle svg { grid-area: 1 / 1; }
+  .i-moon { display: none; }
+  :global(html[data-theme='light']) .i-sun { display: none; }
+  :global(html[data-theme='light']) .i-moon { display: block; }
+
+  .menu { display: none; }
+  .menu > summary { list-style: none; display: grid; place-items: center; width: 40px; height: 40px; color: var(--text); cursor: pointer; border-radius: var(--r-sm); border: 1px solid var(--border); }
+  .menu > summary::-webkit-details-marker { display: none; }
+  .menu-panel {
+    position: absolute;
+    right: var(--sp-6);
+    margin-top: var(--sp-2);
+    display: flex;
+    flex-direction: column;
+    min-width: 180px;
+    padding: var(--sp-2);
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    box-shadow: var(--elev-2);
+  }
+  .menu-panel a { padding: var(--sp-2) var(--sp-3); color: var(--text); font-size: var(--fs-sm); border-radius: 6px; }
+  .menu-panel a:hover { background: var(--surface-2); color: var(--text-hi); }
+
+  @media (max-width: 860px) {
+    .nav-links, .cta-desktop { display: none; }
+    .nav-actions { margin-left: auto; }
+  }
+  @media (max-width: 620px) {
+    .nav-actions .theme-toggle { display: none; }
+    .menu { display: block; }
+  }
+</style>
+
+<style>
+.lang-select { background: transparent; color: var(--text); border: 1px solid var(--border); border-radius: var(--r-sm); padding: 4px 8px; font-size: var(--fs-sm); }
+</style>

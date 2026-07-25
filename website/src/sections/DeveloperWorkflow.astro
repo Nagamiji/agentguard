@@ -1,0 +1,127 @@
+---
+import { useTranslations } from '../i18n/utils';
+const lang = Astro.currentLocale || 'en';
+const t = useTranslations(lang as any);
+
+import SectionHeader from '../components/SectionHeader.astro';
+import CodeTabs from '../components/CodeTabs.astro';
+---
+
+<section class="section" id="workflow">
+  <div class="container">
+    <SectionHeader
+      eyebrow={t('workflow.title')}
+      title="Install, scan, and deploy with confidence."
+      sub="A deterministic, reproducible flow. Integrate in minutes."
+    />
+
+    <div class="flow-container" data-reveal>
+
+      <div class="flow-step">
+        <div class="fs-num">1</div>
+        <div class="fs-content">
+          <h4>Developer installs package</h4>
+          <code>pip install agentguard-dev</code>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="fs-num">2</div>
+        <div class="fs-content">
+          <h4>Create policy.yaml</h4>
+          <p>Define constraints for your agent's tools.</p>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="fs-num">3</div>
+        <div class="fs-content">
+          <h4>Run agentguard scan</h4>
+          <code>agentguard scan --agent my-bot --environment prod</code>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="fs-num">4</div>
+        <div class="fs-content">
+          <h4>Receive signed security verdict</h4>
+          <p>Cryptographic HMAC validation of the scan results.</p>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="fs-num">5</div>
+        <div class="fs-content">
+          <h4>CI/CD blocks unsafe deployment</h4>
+          <p>A non-zero exit code automatically fails the pipeline.</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<style>
+  .flow-container {
+    max-width: 600px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-4);
+    position: relative;
+  }
+
+  /* The connecting line */
+  .flow-container::before {
+    content: '';
+    position: absolute;
+    top: 20px;
+    bottom: 20px;
+    left: 15px;
+    width: 2px;
+    background: var(--border);
+    z-index: 1;
+  }
+
+  .flow-step {
+    display: flex;
+    gap: var(--sp-4);
+    position: relative;
+    z-index: 2;
+  }
+
+  .fs-num {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: var(--surface-2);
+    border: 1px solid var(--border-strong);
+    display: grid;
+    place-items: center;
+    font-family: var(--font-mono);
+    font-size: var(--fs-sm);
+    color: var(--brand);
+    font-weight: bold;
+  }
+
+  .fs-content {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: var(--sp-4);
+    flex-grow: 1;
+    box-shadow: var(--elev-1);
+    transition: transform var(--dur-2) var(--ease-out), border-color var(--dur-2) var(--ease-out);
+  }
+
+  .fs-content:hover {
+    border-color: var(--border-strong);
+    transform: translateX(4px);
+  }
+
+  .fs-content h4 { margin-bottom: var(--sp-2); color: var(--text-hi); }
+  .fs-content p { color: var(--text-mut); font-size: var(--fs-sm); margin: 0; }
+  .fs-content code { display: inline-block; margin-top: var(--sp-2); padding: 4px 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; color: var(--brand); font-family: var(--font-mono); font-size: 0.9em; }
+
+</style>

@@ -1,0 +1,104 @@
+---
+import { useTranslations } from '../i18n/utils';
+const lang = Astro.currentLocale || 'en';
+const t = useTranslations(lang as any);
+
+import TerminalWindow from '../components/TerminalWindow.astro';
+import VerdictBadge from '../components/VerdictBadge.astro';
+import PipelineRail from '../components/PipelineRail.astro';
+import PropertyChip from '../components/PropertyChip.astro';
+import CopyCommand from '../components/CopyCommand.astro';
+import CTAButton from '../components/CTAButton.astro';
+import { HERO_SCAN, PIPELINE_STEPS, SITE } from '../data/product';
+
+const miniSteps = PIPELINE_STEPS.map((s) => ({ id: s.id, title: s.title.split(' ')[0] }));
+---
+
+<section class="hero" id="main">
+  <div class="hero-grid" aria-hidden="true"></div>
+  <div class="container hero-inner">
+    <div class="hero-copy">
+      <p class="eyebrow" data-reveal>Security & reliability for AI agents</p>
+      <h1 data-reveal>{t('hero.title')}</h1>
+      <p class="lede measure" data-reveal style="--reveal-delay: 60ms">{t('hero.subtitle')}</p>
+
+      <div class="hero-cta" data-reveal style="--reveal-delay: 120ms">
+        <CopyCommand command={SITE.installCmd} label="Get started" />
+        <div class="hero-btns">
+          <CTAButton href="#how-it-works" variant="secondary">How it works</CTAButton>
+          <CTAButton href={SITE.github} variant="ghost" external>View source</CTAButton>
+        </div>
+      </div>
+
+      <ul class="hero-props" data-reveal style="--reveal-delay: 180ms">
+        <li><PropertyChip label="Deterministic" tone="brand" /></li>
+        <li><PropertyChip label="Fail-closed" tone="brand" /></li>
+        <li><PropertyChip label="Simulate, never execute" tone="brand" /></li>
+      </ul>
+    </div>
+
+    <div class="hero-demo" data-reveal style="--reveal-delay: 100ms">
+      <div class="demo-verdict">
+        <span class="dv-label">Verdict</span>
+        <VerdictBadge decision="blocked" snap />
+      </div>
+      <TerminalWindow command={HERO_SCAN.command} result={HERO_SCAN.blocked} />
+      <div class="demo-rail">
+        <PipelineRail steps={miniSteps} variant="mini" />
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .hero { position: relative; overflow: hidden; padding-block: clamp(48px, 9vw, 104px) var(--section-y); }
+
+  /* Faint static grid — infra motif (Linear/Vercel), not an "AI gradient". */
+  .hero-grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 56px 56px;
+    -webkit-mask-image: radial-gradient(120% 90% at 68% 12%, #000 0%, transparent 62%);
+    mask-image: radial-gradient(120% 90% at 68% 12%, #000 0%, transparent 62%);
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
+  .hero-inner {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1.05fr 1fr;
+    gap: clamp(var(--sp-12), 6vw, var(--sp-32));
+    align-items: center;
+  }
+
+  .hero-copy { max-width: 40ch; }
+  h1 {
+    font-size: clamp(2.25rem, 5.4vw, 3.75rem);
+    line-height: var(--lh-tight);
+    letter-spacing: -0.025em;
+    margin-top: var(--sp-4);
+  }
+  .h1-accent { display: block; color: var(--text-mut); }
+  .lede { margin-top: var(--sp-6); font-size: var(--fs-md); color: var(--text); }
+  .lede strong { color: var(--text-hi); font-weight: 600; }
+
+  .hero-cta { margin-top: var(--sp-8); display: flex; flex-direction: column; gap: var(--sp-4); max-width: 420px; }
+  .hero-btns { display: flex; gap: var(--sp-3); flex-wrap: wrap; }
+
+  .hero-props { list-style: none; padding: 0; margin: var(--sp-8) 0 0; display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+
+  .hero-demo { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
+  .demo-verdict { display: flex; align-items: center; gap: var(--sp-3); }
+  .dv-label { font-family: var(--font-mono); font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-faint); }
+  .demo-rail { padding: var(--sp-4) var(--sp-4) 0; }
+
+  @media (max-width: 900px) {
+    .hero-inner { grid-template-columns: 1fr; gap: var(--sp-12); }
+    .hero-copy { max-width: 100%; }
+    .hero-demo { order: 2; }
+  }
+</style>

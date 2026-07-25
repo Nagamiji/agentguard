@@ -1,0 +1,97 @@
+---
+import { highlight } from '../lib/highlight';
+
+interface Tab {
+  id: string;
+  label: string;
+  lang: 'json' | 'yaml' | 'bash';
+  code: string;
+  note?: string;
+}
+interface Props {
+  tabs: readonly Tab[];
+  idBase?: string;
+}
+const { tabs, idBase = 'ct' } = Astro.props;
+---
+
+<div class="tabs" data-tabs>
+  <div class="tablist" role="tablist" aria-label="Developer workflow">
+    {tabs.map((t, i) => (
+      <button
+        role="tab"
+        id={`${idBase}-tab-${t.id}`}
+        aria-controls={`${idBase}-panel-${t.id}`}
+        aria-selected={i === 0 ? 'true' : 'false'}
+        tabindex={i === 0 ? 0 : -1}
+        class="tab"
+      >
+        {t.label}
+      </button>
+    ))}
+  </div>
+  {tabs.map((t, i) => (
+    <div
+      role="tabpanel"
+      id={`${idBase}-panel-${t.id}`}
+      aria-labelledby={`${idBase}-tab-${t.id}`}
+      class="panel"
+      hidden={i !== 0}
+    >
+      <pre class="ct-pre scroll-x"><span class="ct-prompt" aria-hidden="true">$</span> <code set:html={highlight(t.code, t.lang)} /></pre>
+      {t.note && <p class="ct-note">{t.note}</p>}
+    </div>
+  ))}
+</div>
+
+<style>
+  .tabs {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    overflow: hidden;
+  }
+  .tablist {
+    display: flex;
+    gap: 2px;
+    padding: 6px;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--border);
+  }
+  .tab {
+    padding: 6px var(--sp-4);
+    border: 0;
+    background: transparent;
+    color: var(--text-mut);
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    border-radius: 6px;
+    transition: color var(--dur-1) var(--ease-out), background var(--dur-1) var(--ease-out);
+  }
+  .tab:hover { color: var(--text); }
+  .tab[aria-selected='true'] { color: var(--text-hi); background: var(--surface-1); }
+
+  .panel { padding: var(--sp-4) var(--sp-6) var(--sp-6); }
+  .ct-pre {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: var(--fs-sm);
+    line-height: var(--lh-code);
+    color: var(--text-hi);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .ct-prompt { color: var(--text-faint); user-select: none; }
+  .ct-note {
+    margin-top: var(--sp-4);
+    padding-top: var(--sp-3);
+    border-top: 1px dashed var(--border);
+    color: var(--text-mut);
+    font-size: var(--fs-sm);
+  }
+  .ct-pre :global(.tk-key) { color: var(--code-key); }
+  .ct-pre :global(.tk-str) { color: var(--code-str); }
+  .ct-pre :global(.tk-num) { color: var(--code-num); }
+  .ct-pre :global(.tk-comment) { color: var(--code-comment); font-style: italic; }
+</style>

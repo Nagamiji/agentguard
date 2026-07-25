@@ -1,0 +1,122 @@
+---
+import { useTranslations } from '../i18n/utils';
+const lang = Astro.currentLocale || 'en';
+const t = useTranslations(lang as any);
+
+import SectionHeader from '../components/SectionHeader.astro';
+import { TRUST_PROPS, FINGERPRINT } from '../data/product';
+
+const flow = [
+  { label: 'Agent', sub: 'manifest.json — prompts, tools, model', note: null },
+  { label: 'Policy Engine', sub: 'compiles policy → deterministic checks', note: 'deterministic' },
+  { label: 'Evaluation', sub: 'simulates tool calls, asserts checks', note: 'simulate · never execute' },
+  { label: 'Security Verdict', sub: 'allowed · blocked · unknown — HMAC-signed', note: 'fail-closed' },
+  { label: 'Deployment Decision', sub: 'exit code gates the pipeline', note: null },
+];
+---
+
+<section class="section" id="security">
+  <div class="container">
+    <SectionHeader
+      eyebrow="Security & trust"
+      title="Why you can trust the verdict."
+      sub="AgentGuard describes guarantees, not model opinions. Every property below is a structural fact about how a scan runs — not a claim about how smart a model is."
+    />
+
+    <div class="sec-grid">
+      <div class="arch" data-reveal data-pipeline aria-label="Evaluation architecture">
+        {flow.map((n, i) => (
+          <div class="arch-node" data-step>
+            <div class="an-body">
+              <span class="an-idx">{i + 1}</span>
+              <div class="an-text">
+                <p class="an-label">{n.label}</p>
+                <p class="an-sub">{n.sub}</p>
+              </div>
+              {n.note && <span class="an-note">{n.note}</span>}
+            </div>
+            {i < flow.length - 1 && (
+              <div class="an-conn" aria-hidden="true"><span class="an-fill"></span></div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div class="props">
+        <ul class="props-list">
+          {TRUST_PROPS.map((p, i) => (
+            <li class="prop" data-reveal style={`--reveal-delay: ${i * 50}ms`}>
+              <span class="prop-tick" aria-hidden="true">
+                <svg aria-hidden="true" viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M3 8.5 6.5 12 13 4.5" /></svg>
+              </span>
+              <div>
+                <p class="prop-label">{p.label}</p>
+                <p class="prop-detail">{p.detail}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
+
+        <div class="fp" data-reveal>
+          <p class="fp-h">Reproducible by fingerprint</p>
+          <p class="fp-desc">
+            Every verdict is keyed to a <strong>{FINGERPRINT.algo}</strong> fingerprint
+            ({FINGERPRINT.length} hex chars, algorithm <code>{FINGERPRINT.version}</code>) of the agent’s
+            <em>behaviour</em> — prompts, tools, model, params, retrieval, framework.
+          </p>
+          <div class="fp-cols">
+            <div><span class="fp-tag inc">included</span><ul>{FINGERPRINT.includes.map((f) => <li>{f}</li>)}</ul></div>
+            <div><span class="fp-tag exc">excluded</span><ul>{FINGERPRINT.excludes.map((f) => <li>{f}</li>)}</ul></div>
+          </div>
+          <p class="fp-note">{FINGERPRINT.note}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .sec-grid { display: grid; grid-template-columns: 0.9fr 1.1fr; gap: var(--sp-12); align-items: start; }
+
+  /* Architecture flow (vertical, scroll-activated) */
+  .arch { padding: var(--sp-8); background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--r-lg); }
+  .arch-node { display: flex; flex-direction: column; }
+  .an-body { display: flex; align-items: center; gap: var(--sp-4); position: relative; }
+  .an-idx {
+    flex-shrink: 0; display: grid; place-items: center; width: 30px; height: 30px;
+    border-radius: var(--r-full); border: 1px solid var(--border-strong);
+    font-family: var(--font-mono); font-size: var(--fs-xs); font-weight: 600; color: var(--text-mut);
+    transition: color var(--dur-3) var(--ease-out), border-color var(--dur-3) var(--ease-out), background var(--dur-3) var(--ease-out), box-shadow var(--dur-3) var(--ease-out);
+  }
+  .an-label { color: var(--text-hi); font-weight: 600; }
+  .an-sub { color: var(--text-mut); font-size: var(--fs-sm); font-family: var(--font-mono); }
+  .an-text { flex: 1; min-width: 0; }
+  .an-note {
+    font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--brand);
+    background: color-mix(in srgb, var(--brand) 10%, transparent); padding: 3px 9px; border-radius: var(--r-full); white-space: nowrap;
+  }
+  .an-conn { height: 26px; margin-left: 15px; width: 2px; background: var(--border); position: relative; overflow: hidden; }
+  .an-fill { position: absolute; inset: 0; background: var(--brand); transform: scaleY(0); transform-origin: top; transition: transform var(--dur-4) var(--ease-out); }
+  .arch-node.is-active .an-idx { color: var(--brand); border-color: var(--brand); background: color-mix(in srgb, var(--brand) 12%, var(--surface-1)); box-shadow: 0 0 0 4px var(--brand-glow); }
+  .arch-node.is-active .an-fill { transform: scaleY(1); }
+
+  .props-list { list-style: none; padding: 0; margin: 0 0 var(--sp-8); display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-6); }
+  .prop { display: flex; gap: var(--sp-3); }
+  .prop-tick { flex-shrink: 0; display: grid; place-items: center; width: 22px; height: 22px; border-radius: var(--r-full); background: var(--success-dim); color: var(--success); margin-top: 2px; }
+  .prop-label { color: var(--text-hi); font-weight: 600; margin-bottom: 2px; }
+  .prop-detail { color: var(--text-mut); font-size: var(--fs-sm); }
+
+  .fp { padding: var(--sp-6); background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--r-md); }
+  .fp-h { font-family: var(--font-mono); font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: 0.06em; color: var(--brand); margin-bottom: var(--sp-3); }
+  .fp-desc { color: var(--text); font-size: var(--fs-sm); }
+  .fp-desc strong { color: var(--text-hi); } .fp-desc code { font-family: var(--font-mono); color: var(--code-key); } .fp-desc em { color: var(--text-hi); font-style: normal; font-weight: 500; }
+  .fp-cols { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-4); margin: var(--sp-4) 0; }
+  .fp-tag { font-family: var(--font-mono); font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: 0.05em; }
+  .fp-tag.inc { color: var(--success); } .fp-tag.exc { color: var(--text-faint); }
+  .fp-cols ul { list-style: none; padding: 0; margin: var(--sp-2) 0 0; display: flex; flex-direction: column; gap: 3px; }
+  .fp-cols li { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text-mut); }
+  .fp-note { color: var(--text-mut); font-size: var(--fs-sm); border-top: 1px dashed var(--border); padding-top: var(--sp-3); }
+
+  @media (max-width: 900px) { .sec-grid { grid-template-columns: 1fr; gap: var(--sp-8); } }
+  @media (max-width: 460px) { .props-list, .fp-cols { grid-template-columns: 1fr; } .an-note { display: none; } }
+</style>

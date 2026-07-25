@@ -1,0 +1,79 @@
+---
+// The decision pill. `decision` maps to a load-bearing semantic color:
+// blocked→danger, allowed→success, unknown/error→warn. Never decorative.
+interface Props {
+  decision: 'allowed' | 'blocked' | 'unknown' | 'error';
+  size?: 'sm' | 'md';
+  snap?: boolean; // participate in the hero verdict-snap animation
+}
+const { decision, size = 'md', snap = false } = Astro.props;
+
+const MAP = {
+  allowed: { label: 'ALLOWED', tone: 'success', glyph: '✓' },
+  blocked: { label: 'BLOCKED', tone: 'danger', glyph: '✕' },
+  unknown: { label: 'UNKNOWN', tone: 'warn', glyph: '?' },
+  error: { label: 'ERROR', tone: 'warn', glyph: '!' },
+} as const;
+const v = MAP[decision];
+---
+
+<span
+  class:list={['verdict', `t-${v.tone}`, `s-${size}`]}
+  data-verdict={snap ? '' : undefined}
+  role="status"
+>
+  <span class="dot" aria-hidden="true">{v.glyph}</span>
+  <span class="label">{v.label}</span>
+</span>
+
+<style>
+  .verdict {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: 6px 12px 6px 8px;
+    border-radius: var(--r-full);
+    font-family: var(--font-mono);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    line-height: 1;
+    border: 1px solid transparent;
+    white-space: nowrap;
+  }
+  .s-sm { font-size: var(--fs-xs); padding: 4px 10px 4px 6px; }
+  .s-md { font-size: var(--fs-sm); }
+
+  .dot {
+    display: inline-grid;
+    place-items: center;
+    width: 1.15em;
+    height: 1.15em;
+    border-radius: var(--r-full);
+    font-size: 0.72em;
+    color: var(--brand-ink);
+  }
+
+  .t-success { color: var(--success); background: var(--success-dim); border-color: color-mix(in srgb, var(--success) 32%, transparent); }
+  .t-success .dot { background: var(--success); }
+  .t-danger  { color: var(--danger);  background: var(--danger-dim);  border-color: color-mix(in srgb, var(--danger) 34%, transparent); }
+  .t-danger .dot { background: var(--danger); }
+  .t-warn    { color: var(--warn);    background: var(--warn-dim);    border-color: color-mix(in srgb, var(--warn) 32%, transparent); }
+  .t-warn .dot { background: var(--warn); }
+
+  /* Verdict snap: eases in from a neutral state to the semantic color.
+     Final state is the default (no-JS / reduced-motion). */
+  :global(html.js) .verdict[data-verdict] {
+    opacity: 0.001;
+    transform: scale(0.94);
+  }
+  :global(html.js) .verdict[data-verdict].is-snapped {
+    opacity: 1;
+    transform: scale(1);
+    transition:
+      opacity var(--dur-2) var(--ease-out),
+      transform var(--dur-3) var(--ease-spring);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    :global(html.js) .verdict[data-verdict] { opacity: 1; transform: none; }
+  }
+</style>

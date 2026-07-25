@@ -1,0 +1,90 @@
+---
+const lang = Astro.currentLocale || 'en';
+
+import '../styles/tokens.css';
+import '../styles/base.css';
+import { SITE } from '../data/product';
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const {
+  title = `${SITE.name} — ${SITE.tagline}`,
+  description = SITE.description,
+} = Astro.props;
+
+const canonical = new URL(Astro.url.pathname, Astro.site ?? 'https://agentguard.dev');
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: SITE.name,
+  applicationCategory: 'DeveloperApplication',
+  operatingSystem: 'Linux, macOS, Windows',
+  description: SITE.description,
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+  url: canonical.href,
+};
+---
+
+<!doctype html>
+<html lang={lang} data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="canonical" href={canonical.href} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#0b0f19" />
+
+    <!-- Open Graph / Twitter -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={SITE.name} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical.href} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(jsonLd)} />
+
+    <link rel="alternate" hreflang="en" href={Astro.url.origin + "/"} />
+    <link rel="alternate" hreflang="km" href={Astro.url.origin + "/km/"} />
+    <link rel="alternate" hreflang="ja" href={Astro.url.origin + "/ja/"} />
+    <link rel="alternate" hreflang="zh-cn" href={Astro.url.origin + "/zh-cn/"} />
+    <link rel="alternate" hreflang="x-default" href={Astro.url.origin + "/"} />
+
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@400;600&family=Noto+Sans+JP:wght@400;600&family=Noto+Sans+SC:wght@400;600&display=swap" rel="stylesheet">
+</head>
+  <body>
+    <a href="#main" class="skip-link">Skip to content</a>
+    <slot />
+    <!-- External module (not inlined) so a strict CSP works with script-src 'self'. -->
+    <script type="module" src="/motion.js" is:inline></script>
+
+    <style>
+      .skip-link {
+        position: fixed;
+        top: -100px;
+        left: var(--sp-4);
+        z-index: 100;
+        padding: var(--sp-2) var(--sp-4);
+        background: var(--brand);
+        color: var(--brand-ink);
+        border-radius: var(--r-sm);
+        font-size: var(--fs-sm);
+        font-weight: 600;
+        transition: top var(--dur-2) var(--ease-out);
+      }
+      .skip-link:focus {
+        top: var(--sp-4);
+        color: var(--brand-ink);
+      }
+    </style>
+  </body>
+</html>
