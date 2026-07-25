@@ -37,11 +37,16 @@ capture ──► evaluate checks (raw) ──► redact ──► Proof Object 
 | Credentials — OpenAI, Anthropic, AWS, GitHub, Google, Slack, AgentGuard keys, private key blocks | shared pattern set with the manifest secret scanner |
 | `email` | regex |
 | `credit-card` | regex + Luhn checksum |
-| `us-ssn` | regex, excluding never-issued ranges |
+| `us-ssn` | regex, excluding never-issued ranges; undelimited form requires a nearby label ("SSN: …") |
 | `iban`, `phone`, `ipv4` | regex |
 
 Digit runs that fail Luhn — order numbers, request ids, timestamps — are deliberately left
-alone. Masking every long number would bury real behaviour changes in redaction noise.
+alone, and a bare `123456789` is not treated as an SSN without surrounding context. Masking
+every long number would bury real behaviour changes in redaction noise.
+
+Scenario-library text (`attack_input`, `expected_behavior`, `limitations`) is redacted on
+the same terms as captured output. It is our own text in the bundled library, but a custom
+scenario library can name real people or hosts and it lands in the same committed file.
 
 ## What is NOT detected
 
@@ -58,6 +63,13 @@ baseline diff stable across runs and requires no key management. The cost is ref
 integrity: two different emails collapse to the same token, so the artifact cannot tell you
 *which* user appeared. That trade is deliberate — a reversible pseudonym is still personal
 data.
+
+It has a consequence worth stating plainly: because `evidence_digest` covers the redacted
+values, **two runs that differ only in redacted content produce the same digest**. An agent
+that leaks user A's address on Monday and user B's on Tuesday reads as unchanged evidence.
+What survives is the signal that matters for a gate — that an email was emitted at all, and
+how many — via `categories_redacted`. Distinguishing *whose* data leaked is not something
+an artifact bound for git should be able to do.
 
 ## What the artifact records
 

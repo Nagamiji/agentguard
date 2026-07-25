@@ -107,6 +107,18 @@ _PII_PATTERNS: tuple[tuple[str, re.Pattern[str], Any], ...] = (
         None,
     ),
     (
+        # Undelimited SSNs are indistinguishable from any other 9-digit identifier, so this
+        # fires only when the surrounding text says what the number is. Matching bare
+        # 9-digit runs would mask order and account numbers across every report.
+        "us-ssn",
+        re.compile(
+            r"(?P<keep>\b(?:SSN|S\.S\.N\.|social security(?:\s+(?:number|no\.?|#))?)\b[\s:#=]*)"
+            r"(?!000|666|9\d{2})\d{3}(?!00)\d{2}(?!0000)\d{4}\b",
+            re.IGNORECASE,
+        ),
+        None,
+    ),
+    (
         "ipv4",
         re.compile(
             r"\b(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\b"
@@ -126,8 +138,10 @@ _CREDENTIAL_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
     (_slug(label), pattern) for label, pattern in SECRET_PATTERNS
 )
 
+# Deduplicated: a category may be spelled by more than one pattern (delimited and
+# context-gated SSNs both report as `us-ssn`).
 CATEGORIES: tuple[str, ...] = tuple(
-    [slug for slug, _ in _CREDENTIAL_PATTERNS] + [name for name, _, _ in _PII_PATTERNS]
+    dict.fromkeys([slug for slug, _ in _CREDENTIAL_PATTERNS] + [n for n, _, _ in _PII_PATTERNS])
 )
 
 
@@ -160,7 +174,11 @@ class Redactor:
             if validator is not None and not validator(match):
                 return match.group(0)
             hits += 1
-            return _MASK_FORMAT.format(category=category)
+            # A pattern that needs surrounding context to identify its match keeps that
+            # context in a `keep` group, so "SSN: 123456789" masks the number without
+            # deleting the word that tells a reader what was removed.
+            keep = match.groupdict().get("keep") or ""
+            return keep + _MASK_FORMAT.format(category=category)
 
         out = pattern.sub(repl, value)
         if hits:
@@ -171,12 +189,24 @@ class Redactor:
         """Redact recursively through the JSON shapes a proof object carries.
 
         Dict keys are redacted too: a tool argument named after the user's email address is
-        as much of a leak as one valued with it.
+        as much of a leak as one valued with it. Because distinct keys can mask to the same
+        token, collisions are suffixed rather than allowed to overwrite — dropping an entry
+        would silently shrink the evidence and could hide the behaviour change a reader is
+        looking for.
         """
         if isinstance(value, str):
             return self.text(value)
         if isinstance(value, dict):
-            return {self.value(k): self.value(v) for k, v in value.items()}
+            out: dict[Any, Any] = {}
+            for k, v in value.items():
+                key = self.value(k)
+                if key in out:
+                    suffix = 2
+                    while f"{key}#{suffix}" in out:
+                        suffix += 1
+                    key = f"{key}#{suffix}"
+                out[key] = self.value(v)
+            return out
         if isinstance(value, list):
             return [self.value(v) for v in value]
         if isinstance(value, tuple):

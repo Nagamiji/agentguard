@@ -162,7 +162,13 @@ def _structural_checks(manifest: dict[str, Any]) -> list[StructuralCheck]:
 # -------------------------------------------------------------------------------------
 
 
-def _skip(scenario: LocalScenario, mode: ExecutionMode, reason: str) -> ProofObject:
+def _skip(
+    scenario: LocalScenario,
+    mode: ExecutionMode,
+    reason: str,
+    redactor: Redactor | None = None,
+) -> ProofObject:
+    red = redactor if redactor is not None else Redactor()
     return ProofObject(
         scenario_id=scenario.key,
         name=scenario.title,
@@ -170,14 +176,14 @@ def _skip(scenario: LocalScenario, mode: ExecutionMode, reason: str) -> ProofObj
         asi_name=scenario.asi_name,
         llm_id=scenario.llm_id,
         attack_category=scenario.category,
-        attack_input=str(scenario.input.get("user_message", "")),
-        expected_behavior=scenario.expected_behavior,
+        attack_input=red.text(str(scenario.input.get("user_message", ""))),
+        expected_behavior=red.text(scenario.expected_behavior),
         observed_behavior={},
         result="skipped",
         execution_mode=mode,
         confidence="n/a — not executed",
-        limitations=scenario.limitations,
-        skip_reason=reason,
+        limitations=red.text(scenario.limitations),
+        skip_reason=red.text(reason),
     )
 
 
@@ -199,17 +205,21 @@ def _run_scenario(
     Order matters: checks run against the RAW capture so a leak cannot hide behind a
     redaction token, and only the value stored on the Proof Object is scrubbed.
     """
+    # `redactor` is never None in the scan path; the default keeps direct callers (tests,
+    # embedders) from silently persisting raw capture.
+    red = redactor if redactor is not None else Redactor()
+
     # Static mode cannot observe a live agent — behavioural scenarios are SKIPPED, not passed.
     if mode == "static" and scenario.requires_live:
-        return _skip(scenario, mode, _LIVE_REQUIRED_REASON)
+        return _skip(scenario, mode, _LIVE_REQUIRED_REASON, red)
 
     # Policy-dependent scenario with nothing to assert (e.g. no max_tool_arg declared).
     if not scenario.checks:
-        return _skip(scenario, mode, "no policy declared for this scenario")
+        return _skip(scenario, mode, "no policy declared for this scenario", red)
 
     src = observed if observed is not None else scenario.input.get("scripted_output")
     if src is None:
-        return _skip(scenario, mode, "no observed behaviour captured")
+        return _skip(scenario, mode, "no observed behaviour captured", red)
 
     text = str(src.get("text", ""))
     tool_calls = list(src.get("tool_calls", []))
@@ -217,9 +227,7 @@ def _run_scenario(
     failed = [r for r in results if not r["passed"]]
     primary = failed[0] if failed else results[0]
 
-    # From here on nothing raw is retained. `redactor` is never None in the scan path; the
-    # default keeps direct callers (tests, embedders) from silently persisting raw capture.
-    red = redactor if redactor is not None else Redactor()
+    # From here on nothing raw is retained.
     observed_behavior = red.value({"text": text, "tool_calls": tool_calls})
     primary = red.value(primary)
 
@@ -230,13 +238,16 @@ def _run_scenario(
         asi_name=scenario.asi_name,
         llm_id=scenario.llm_id,
         attack_category=scenario.category,
-        attack_input=str(scenario.input.get("user_message", "")),
-        expected_behavior=scenario.expected_behavior,
+        # Scenario-library text, not captured output — but a custom library can name real
+        # people or systems, and it lands in the same committed file. Scrubbed on the same
+        # terms rather than trusted for being ours.
+        attack_input=red.text(str(scenario.input.get("user_message", ""))),
+        expected_behavior=red.text(scenario.expected_behavior),
         observed_behavior=observed_behavior,
         result="fail" if failed else "pass",
         execution_mode=mode,
         confidence=scenario.confidence,
-        limitations=scenario.limitations,
+        limitations=red.text(scenario.limitations),
         policy_check=primary,
     )
 

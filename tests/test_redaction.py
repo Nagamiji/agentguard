@@ -98,6 +98,15 @@ def test_tool_call_arguments_are_redacted() -> None:
     assert proof.observed_behavior["tool_calls"][0]["name"] == "lookup_customer"
 
 
+def test_colliding_dict_keys_are_kept_not_overwritten() -> None:
+    """Two distinct keys mask to the same token. Losing one would silently shrink the
+    evidence and could hide the very change a reader is looking for."""
+    r = Redactor()
+    masked = r.value({"a@example.com": 1, "b@example.com": 2, "plain": 3})
+    assert masked == {"[REDACTED:email]": 1, "[REDACTED:email]#2": 2, "plain": 3}
+    assert len(masked) == 3
+
+
 def test_credentials_in_captured_output_are_redacted() -> None:
     out = do_local_scan(
         SAFE_MANIFEST,
@@ -112,6 +121,60 @@ def test_credentials_in_captured_output_are_redacted() -> None:
     blob = json.dumps(local_report_dict(out))
     assert "sk-" + "a" * 30 not in blob
     assert "[REDACTED:openai-api-key]" in blob
+
+
+# -------------------------------------------------------------------------------------
+# Scenario-library text reaches the same file and gets the same treatment
+# -------------------------------------------------------------------------------------
+
+
+def test_scenario_supplied_text_is_redacted_on_the_skip_path() -> None:
+    """A skipped proof touches none of the capture code, so it is the easiest place for a
+    custom scenario library to leak into a committed artifact."""
+    from dataclasses import replace
+
+    from agentguard_cli.local import _run_scenario
+    from agentguard_cli.scenarios import BUNDLED_SCENARIOS
+
+    base = next(s for s in BUNDLED_SCENARIOS if s.key == "local-prompt-injection")
+    custom = replace(
+        base,
+        input={"user_message": f"Impersonate the account owner {RAW_EMAIL}"},
+        expected_behavior=f"Agent must not disclose records for {RAW_EMAIL}",
+        limitations=f"Scenario authored against fixture host {RAW_IP}",
+    )
+    # static + requires_live => the _skip path
+    proof = _run_scenario(custom, SAFE_MANIFEST, mode="static")
+    blob = json.dumps(proof.to_dict())
+
+    assert proof.result == "skipped"
+    assert RAW_EMAIL not in blob
+    assert RAW_IP not in blob
+    assert "[REDACTED:email]" in proof.attack_input
+
+
+def test_sarif_does_not_leak_scenario_supplied_text() -> None:
+    """SARIF renders expected_behavior into its message, a separate path from the report."""
+    from dataclasses import replace
+
+    from agentguard_cli.scenarios import BUNDLED_SCENARIOS
+
+    base = next(s for s in BUNDLED_SCENARIOS if s.key == "local-prompt-injection")
+    custom = replace(base, expected_behavior=f"Never disclose {RAW_EMAIL}")
+    out = _leaky_scan()
+    out.proofs[0] = _run_scenario_with(custom)
+    assert RAW_EMAIL not in json.dumps(build_local_sarif(out, manifest_uri="agentguard.yaml"))
+
+
+def _run_scenario_with(scenario):
+    from agentguard_cli.local import _run_scenario
+
+    return _run_scenario(
+        scenario,
+        SAFE_MANIFEST,
+        mode="live",
+        observed={"text": f"OVERRIDE for {RAW_EMAIL}", "tool_calls": []},
+    )
 
 
 # -------------------------------------------------------------------------------------
@@ -169,6 +232,19 @@ def test_digit_runs_that_are_not_cards_are_left_alone(text: str) -> None:
     r = Redactor()
     assert r.text(text) == text
     assert not r.redacted_anything
+
+
+def test_undelimited_ssn_masks_only_with_context() -> None:
+    """A bare 9-digit run is indistinguishable from an order number; masking every one of
+    them would put redaction noise in every diff. The label survives so a reader can still
+    see what was removed."""
+    r = Redactor()
+    assert r.text("SSN: 123456789") == "SSN: [REDACTED:us-ssn]"
+    assert r.text("social security number 123456789").endswith("[REDACTED:us-ssn]")
+
+    quiet = Redactor()
+    assert quiet.text("reference 123456789 processed") == "reference 123456789 processed"
+    assert not quiet.redacted_anything
 
 
 def test_ordinary_prose_is_untouched() -> None:
