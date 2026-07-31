@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#0b0f19"/>
+  <defs>
+    <pattern id="grid" width="56" height="56" patternUnits="userSpaceOnUse">
+      <path d="M56 0H0V56" fill="none" stroke="#1e2637" stroke-width="1"/>
+    </pattern>
+    <radialGradient id="wash" cx="0" cy="0" r="1" gradientTransform="translate(935 140) rotate(145) scale(560 390)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#5b8cff" stop-opacity=".2"/>
+      <stop offset="1" stop-color="#5b8cff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#grid)" opacity=".65"/>
+  <rect width="1200" height="630" fill="url(#wash)"/>
+
+  <g transform="translate(82 72)">
+    <path d="M28 2v40M16 22h12M16 2 2 22l14 20" fill="none" stroke="#e8ecf4" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="2" cy="22" r="5" fill="#5b8cff"/>
+    <text x="52" y="32" fill="#e8ecf4" font-family="Inter,system-ui,sans-serif" font-size="30" font-weight="650">Agent<tspan fill="#5b8cff">Guard</tspan></text>
+  </g>
+
+  <text x="82" y="214" fill="#5b8cff" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="18" letter-spacing="2">SECURITY GATE FOR AI AGENTS</text>
+  <text x="82" y="286" fill="#e8ecf4" font-family="Inter,system-ui,sans-serif" font-size="58" font-weight="650">Block unsafe agent actions</text>
+  <text x="82" y="352" fill="#e8ecf4" font-family="Inter,system-ui,sans-serif" font-size="58" font-weight="650">before deployment.</text>
+
+  <g transform="translate(82 426)">
+    <rect width="1036" height="112" rx="14" fill="#0f1420" stroke="#2a3550"/>
+    <circle cx="35" cy="32" r="6" fill="#ff5f57"/>
+    <circle cx="56" cy="32" r="6" fill="#febc2e"/>
+    <circle cx="77" cy="32" r="6" fill="#28c840"/>
+    <text x="34" y="78" fill="#94a3b8" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="23">$ issue_refund(amount=9000)</text>
+    <rect x="746" y="29" width="246" height="55" rx="27" fill="#ef4444" fill-opacity=".14" stroke="#ef4444"/>
+    <text x="787" y="66" fill="#ef4444" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="24" font-weight="700">BLOCKED · 20</text>
+  </g>
+  <text x="82" y="588" fill="#94a3b8" font-family="Inter,system-ui,sans-serif" font-size="22">Open source · fail closed · real tools never executed</text>
+</svg>

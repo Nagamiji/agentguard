@@ -1,0 +1,10 @@
+<svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Minimalist Deployment Gate & Agent -->
+  <!-- Gate / Boundary (Strict vertical and horizontal lines representing the 'G' and Policy) -->
+  <path d="M 28 8 L 28 32" stroke="currentColor" stroke-width="4" stroke-linecap="round" />
+  <path d="M 20 20 L 28 20" stroke="currentColor" stroke-width="4" stroke-linecap="round" />
+  <!-- Agent (Circle entering the 'A' or being halted) -->
+  <circle cx="12" cy="20" r="4" fill="currentColor" />
+  <!-- Abstract 'A' structure wrapping it -->
+  <path d="M 12 8 L 4 20 L 12 32" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
+</svg>
