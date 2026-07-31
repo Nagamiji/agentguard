@@ -37,6 +37,9 @@ dev = [
     # because of our commits, not their release schedule. Bump these in their own PR.
     "ruff>=0.6,<0.13",
     "mypy>=1.11,<1.19",
+    # PyYAML is a runtime dependency of the standalone CLI because `agentguard init` creates
+    # YAML by default. `mypy --strict` also needs its stubs to check the parsing branch.
+    "types-PyYAML>=6.0",
 ]
 
 [tool.setuptools]

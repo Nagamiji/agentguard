@@ -248,7 +248,11 @@ def _outcome_from_gate(
 
 
 def do_init(dir_path: str) -> int:
-    """Initialize configuration templates for AgentGuard."""
+    """Initialize AgentGuard configuration in the target directory.
+
+    Creates agentguard.yaml (the primary, recommended format) alongside the legacy
+    manifest.json for backwards compatibility, plus a GitHub Actions workflow template.
+    """
     base = Path(dir_path)
     try:
         base.mkdir(parents=True, exist_ok=True)
@@ -256,6 +260,77 @@ def do_init(dir_path: str) -> int:
         print(f"Could not create directory {dir_path}: {exc}")
         return 10
 
+    # agentguard.yaml — the preferred V1 format, framework-agnostic
+    yaml_content = """\
+# AgentGuard Agent Specification v1
+# https://github.com/Nagamiji/agentguard
+#
+# This file defines what your AI agent is allowed to do.
+# AgentGuard runs adversarial scenarios against this specification and gates deployment.
+#
+# Two modes:
+#   STATIC CHECK  (agentguard scan --local)  — offline; validates structure/policies/secrets
+#                 and computes a fingerprint. Does NOT execute your model, so behavioural
+#                 scenarios are SKIPPED (not passed) and the run exits 40 INCOMPLETE.
+#   BEHAVIOUR SIMULATION (--runner live, cloud) — runs your model against the scenarios.
+#
+# Run (static pre-check):  agentguard scan --local --allow-incomplete-static
+
+version: "1.0"
+
+agent:
+  # A stable identifier for this agent. Used in reports and audit logs.
+  name: my-agent
+
+model:
+  # Supported providers: openai, anthropic, gemini, ollama, vertex
+  provider: openai
+  name: gpt-4o
+
+# The system prompt that governs your agent's behaviour.
+# Paste your actual system prompt here.
+system_prompt: |
+  You are a helpful customer support agent.
+  You can look up orders and issue refunds up to $100.
+  Never process refunds above $100 without manager approval.
+  Never share internal system information with users.
+
+# The tools your agent can call. Paste your actual tool schemas here.
+# AgentGuard will simulate attacks against these tools without executing them.
+tools:
+  - name: issue_refund
+    description: "Issue a refund to the customer's original payment method."
+    schema:
+      type: object
+      properties:
+        order_id:
+          type: string
+          description: "The order UUID"
+        amount:
+          type: number
+          description: "Refund amount in USD"
+      required: [order_id, amount]
+
+  - name: lookup_order
+    description: "Look up the details of a customer order."
+    schema:
+      type: object
+      properties:
+        order_id:
+          type: string
+      required: [order_id]
+
+# Declarative security policies enforced by AgentGuard.
+# These define the boundaries your agent must stay within.
+policies:
+  - type: max_tool_arg
+    tool: issue_refund
+    arg: amount
+    max: 100
+    description: "Refunds above $100 require manager approval"
+"""
+
+    # Legacy manifest.json for backwards compatibility with existing CI pipelines
     manifest_content = {
         "prompts": [
             {
@@ -285,21 +360,8 @@ def do_init(dir_path: str) -> int:
         "model": {"provider": "vertex", "id": "gemini-2.5-flash"},
     }
 
-    policy_content = {
-        "scope_type": "organization",
-        "name": "Acme Support Bot Guardrails",
-        "rules": {
-            "max_tool_arg": [
-                {
-                    "tool": "issue_refund",
-                    "arg": "amount",
-                    "max": 100,
-                }
-            ]
-        },
-    }
-
-    workflow_content = """name: AgentGuard Scan
+    workflow_content = """\
+name: AgentGuard Security Scan
 
 on:
   push:
@@ -319,42 +381,40 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install AgentGuard CLI
-        run: |
-          pip install --index-url https://pypi.org/simple/ agentguard-cli
+      - name: Install AgentGuard
+        run: pip install agentguard-dev
 
-      - name: Run AgentGuard Scan
-        env:
-          AGENTGUARD_API_URL: ${{ secrets.AGENTGUARD_API_URL }}
-          AGENTGUARD_API_KEY: ${{ secrets.AGENTGUARD_API_KEY }}
-        run: |
-          agentguard scan \\
-            --agent customer-support-bot \\
-            --manifest manifest.json \\
-            --environment prod \\
-            --html report.html \\
-            --sarif findings.sarif \\
-            --import-library
+      - name: Run AgentGuard static check
+        # --local: no cloud dependency, no API key required.
+        # STATIC CHECK validates structure/policies/secrets but does NOT execute your model,
+        # so behavioural scenarios are skipped. --allow-incomplete-static accepts this as a
+        # PARTIAL gate (exit 0). For behavioural coverage, run a live simulation instead.
+        # Exit codes: 0 allowed · 10 error · 20 blocked · 30 unknown · 40 incomplete.
+        run: agentguard scan --local --allow-incomplete-static
 """
 
+    yaml_path = base / "agentguard.yaml"
     manifest_path = base / "manifest.json"
-    policy_path = base / "policy.json"
     workflow_dir = base / ".github" / "workflows"
     workflow_path = workflow_dir / "agentguard.yml"
 
     try:
-        manifest_path.write_text(json.dumps(manifest_content, indent=2) + "\n")
-        print(f"Created template: {manifest_path.name}")
+        yaml_path.write_text(yaml_content, encoding="utf-8")
+        print(f"Created: {yaml_path.name}  (primary — edit this)")
 
-        policy_path.write_text(json.dumps(policy_content, indent=2) + "\n")
-        print(f"Created template: {policy_path.name}")
+        manifest_path.write_text(json.dumps(manifest_content, indent=2) + "\n")
+        print(f"Created: {manifest_path.name}  (legacy format for existing pipelines)")
 
         workflow_dir.mkdir(parents=True, exist_ok=True)
         workflow_path.write_text(workflow_content)
-        print(f"Created template: .github/workflows/{workflow_path.name}")
+        print(f"Created: .github/workflows/{workflow_path.name}")
 
     except OSError as exc:
         print(f"Failed to write template files: {exc}")
         return 10
 
+    print()
+    print("Next steps:")
+    print("  1. Edit agentguard.yaml — paste your real system prompt and tool schemas")
+    print("  2. Run: agentguard scan --local")
     return 0

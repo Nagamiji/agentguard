@@ -156,7 +156,11 @@ def compute_fingerprint(manifest: dict[str, Any]) -> str:
 # a fingerprint that can never be redacted. Rejecting a legitimate write is recoverable;
 # an unredactable secret is not. So this errs toward rejecting.
 
-_SECRET_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
+"""Credential patterns, public because two callers need them: `find_secrets` rejects a
+manifest that contains one, and the redactor scrubs them out of captured agent output
+before it is written to disk. One list, so a pattern added for either purpose serves both.
+"""
+SECRET_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("Anthropic API key", re.compile(r"sk-ant-[A-Za-z0-9_\-]{16,}")),
     # (?!ant-) so an Anthropic key is not also reported as an OpenAI one — both start `sk-`.
     ("OpenAI API key", re.compile(r"\bsk-(?!ant-)(?:proj-)?[A-Za-z0-9_\-]{20,}")),
@@ -176,4 +180,4 @@ def find_secrets(manifest: dict[str, Any]) -> list[str]:
     error bodies, i.e. exactly what this exists to prevent.
     """
     blob = json.dumps(manifest, ensure_ascii=False)
-    return [label for label, pattern in _SECRET_PATTERNS if pattern.search(blob)]
+    return [label for label, pattern in SECRET_PATTERNS if pattern.search(blob)]

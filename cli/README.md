@@ -1,9 +1,8 @@
 # AgentGuard CLI
 
-**Security testing for AI agents, before production.** `agentguard` evaluates an agent
-version against its scenarios and policy, prints a verdict, and **exits non-zero when a
-deploy must be blocked** — so a CI step fails and stops the merge. That exit code is the
-whole point.
+**Security testing for AI agents, before production.** `agentguard` performs an offline
+static check or evaluates an agent through an AgentGuard control plane, prints an honest
+verdict, and **exits non-zero when a deploy must be blocked or coverage is incomplete**.
 
 The judgement is deterministic (never an LLM deciding what's a vulnerability) and
 reproducible: the same configuration always yields the same verdict, explainable to the
@@ -15,10 +14,25 @@ engineer it blocks at 2am.
 pip install agentguard-dev
 ```
 
-The CLI is a thin API client — its only dependency is `httpx`. It talks to an AgentGuard
-control plane (self-hosted or hosted).
+The CLI has two lightweight dependencies (`httpx` and `PyYAML`). Offline static checks need
+no API key, network, database, or control plane.
 
-## First scan
+## First local check
+
+```bash
+agentguard init
+agentguard scan --local
+```
+
+Static mode validates the manifest, declared policies, and accidental credentials. It does
+not execute a model, so behavioural scenarios are reported as `SKIPPED` and the command
+exits `40` (`INCOMPLETE`). To explicitly accept a static-only partial gate in CI:
+
+```bash
+agentguard scan --local --allow-incomplete-static --sarif agentguard.sarif
+```
+
+## Behaviour simulation through a control plane
 
 ```bash
 export AGENTGUARD_API_KEY=ag_your_key_here     # from your org's onboarding
@@ -39,6 +53,7 @@ Exit codes are the CI contract:
 | `20` | blocked (a scenario failed at blocking severity) |
 | `10` | error |
 | `30` | unknown (could not evaluate — fail closed) |
+| `40` | incomplete (behavioural coverage was not run) |
 
 `--html report.html` writes a self-contained report (no external requests) with the
 verdict, evidence, and a per-finding remediation.

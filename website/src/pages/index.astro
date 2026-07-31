@@ -1,0 +1,31 @@
+---
+import Base from '../layouts/Base.astro';
+import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
+import Hero from '../sections/Hero.astro';
+import Problem from '../sections/Problem.astro';
+import HowItWorks from '../sections/HowItWorks.astro';
+import DeveloperWorkflow from '../sections/DeveloperWorkflow.astro';
+import PolicyAsCode from '../sections/PolicyAsCode.astro';
+import CICD from '../sections/CICD.astro';
+import SecurityArchitecture from '../sections/SecurityArchitecture.astro';
+import Install from '../sections/Install.astro';
+---
+
+<Base>
+  <Nav />
+  <main>
+    <Hero />
+    <hr class="rule container" />
+    <Problem />
+    <HowItWorks />
+    <hr class="rule container" />
+    <DeveloperWorkflow />
+    <PolicyAsCode />
+    <hr class="rule container" />
+    <CICD />
+    <SecurityArchitecture />
+    <Install />
+  </main>
+  <Footer />
+</Base>

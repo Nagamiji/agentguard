@@ -1,0 +1,13 @@
+# Cloudflare Pages headers. Strict, self-only CSP — no external hosts, no inline
+# executable scripts (motion ships as /motion.js; the only inline <script> is a
+# non-executable application/ld+json data block, which CSP script-src ignores).
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; upgrade-insecure-requests
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: DENY
+  Permissions-Policy: geolocation=(), microphone=(), camera=(), interest-cohort=()
+
+/motion.js
+  Content-Type: text/javascript; charset=utf-8
+  Cache-Control: public, max-age=3600

@@ -1,0 +1,76 @@
+---
+const lang = Astro.currentLocale || 'en';
+const home = `/${lang === 'en' ? '' : lang + '/'}`;
+
+import { SITE } from '../data/product';
+const cols = [
+  {
+    title: 'Product',
+    links: [
+      { label: 'How it works', href: `${home}#how-it-works` },
+      { label: 'Policy-as-code', href: `${home}#policy` },
+      { label: 'Security', href: `${home}#security` },
+      { label: 'CI/CD', href: `${home}#cicd` },
+    ],
+  },
+  {
+    title: 'Developers',
+    links: [
+      { label: 'Documentation', href: SITE.docsUrl },
+      { label: 'Quickstart', href: `${home}#get-started` },
+      { label: 'GitHub', href: SITE.github, external: true },
+    ],
+  },
+];
+---
+
+<footer class="footer">
+  <div class="container foot-inner">
+    <div class="foot-brand">
+      <span class="brand-word">Agent<span class="brand-guard">Guard</span></span>
+      <p class="foot-tag">{SITE.tagline}</p>
+      <p class="foot-mono">simulate · never execute</p>
+    </div>
+    <nav class="foot-cols" aria-label="Footer">
+      {cols.map((c) => (
+        <div class="foot-col">
+          <p class="foot-h">{c.title}</p>
+          {c.links.map((l) => (
+            <a href={l.href} {...'external' in l && l.external ? { target: '_blank', rel: 'noopener noreferrer' } : {}}>{l.label}</a>
+          ))}
+        </div>
+      ))}
+    </nav>
+  </div>
+  <div class="container foot-base">
+    <span>© {new Date().getFullYear()} AgentGuard</span>
+    <span class="foot-mono">Boring, auditable, reproducible.</span>
+  </div>
+</footer>
+
+<style>
+  .footer { border-top: 1px solid var(--border); padding-block: var(--sp-16) var(--sp-8); margin-top: var(--sp-16); }
+  .foot-inner { display: flex; flex-wrap: wrap; gap: var(--sp-16); justify-content: space-between; }
+  .foot-brand { max-width: 320px; }
+  .brand-word { font-family: var(--font-display); font-size: var(--fs-lg); letter-spacing: -0.02em; color: var(--text-hi); }
+  .brand-guard { color: var(--brand); }
+  .foot-tag { color: var(--text-mut); font-size: var(--fs-sm); margin-top: var(--sp-3); }
+  .foot-mono { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text-faint); margin-top: var(--sp-3); letter-spacing: 0.04em; }
+  .foot-cols { display: flex; gap: var(--sp-16); }
+  .foot-col { display: flex; flex-direction: column; gap: var(--sp-3); }
+  .foot-h { font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-faint); font-weight: 600; }
+  .foot-col a { color: var(--text-mut); font-size: var(--fs-sm); }
+  .foot-col a:hover { color: var(--text-hi); }
+  .foot-base {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--sp-4);
+    margin-top: var(--sp-16);
+    padding-top: var(--sp-6);
+    border-top: 1px solid var(--border);
+    color: var(--text-faint);
+    font-size: var(--fs-sm);
+    flex-wrap: wrap;
+  }
+  @media (max-width: 640px) { .foot-cols { gap: var(--sp-12); } }
+</style>

@@ -1,0 +1,135 @@
+/* ============================================================================
+   AgentGuard — Design tokens
+   Source of truth: docs/product/agentguard-landing-page-design-spec.md §6.
+   Dark-first (developer default). Green/red are LOAD-BEARING semantic tokens —
+   they mean `allowed` and `blocked`. Never use them decoratively.
+   ========================================================================== */
+
+:root {
+  color-scheme: dark;
+
+  /* --- Surfaces & structure -------------------------------------------- */
+  --bg: #0b0f19;
+  --bg-elev: #0d111c;          /* nav / sticky bars over --bg */
+  --surface-1: #0f1420;        /* cards, terminal body */
+  --surface-2: #141b2b;        /* elevated / hover */
+  --border: #1e2637;           /* hairline dividers, card edges */
+  --border-strong: #2a3550;    /* focused / active edges */
+
+  /* --- Text hierarchy --------------------------------------------------- */
+  --text-hi: #e8ecf4;          /* headings, primary */
+  --text: #b7c0d0;             /* body */
+  --text-mut: #94a3b8;         /* captions, secondary */
+  --text-faint: #64748b;       /* disabled, watermarks */
+
+  /* --- Brand & semantic ------------------------------------------------- */
+  --brand: #5b8cff;            /* primary accent, links, primary CTA */
+  --brand-hi: #7aa2ff;         /* hover */
+  --brand-ink: #0b0f19;        /* text on --brand */
+  --brand-glow: rgba(91, 140, 255, 0.18);
+
+  --success: #10b981;          /* verdict ALLOWED only */
+  --success-ink: #04140d;
+  --success-dim: rgba(16, 185, 129, 0.12);
+  --danger: #ef4444;           /* verdict BLOCKED / violations only */
+  --danger-ink: #1a0505;
+  --danger-dim: rgba(239, 68, 68, 0.12);
+  --warn: #f59e0b;             /* UNKNOWN / degraded / fail-closed caution */
+  --warn-dim: rgba(245, 158, 11, 0.12);
+  --info: #38bdf8;             /* neutral callouts, runtime-declared notes */
+  --info-dim: rgba(56, 189, 248, 0.12);
+
+  /* --- Code syntax palette (restrained, dark) --------------------------- */
+  --code-key: #8ab4ff;
+  --code-str: #7ee0b8;
+  --code-num: #f0b072;
+  --code-punc: #7a8699;
+  --code-comment: #55607a;
+  --code-danger: #ef4444;      /* a violation value — semantic, not decorative */
+
+  /* --- Typography ------------------------------------------------------- */
+  /* System-first stacks (fast, CSP-clean, zero external requests). Geist /
+     Inter / Geist Mono can be self-hosted later without touching component code. */
+  --font-display: "Geist", "Inter", ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-body: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: "Geist Mono", "JetBrains Mono", ui-monospace, "SFMono-Regular",
+    "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+  /* Type scale (rem, ~1.2 ratio) */
+  --fs-xs: 0.75rem;
+  --fs-sm: 0.875rem;
+  --fs-base: 1rem;
+  --fs-md: 1.125rem;
+  --fs-lg: 1.25rem;
+  --fs-xl: 1.5rem;
+  --fs-2xl: 1.875rem;
+  --fs-3xl: 2.25rem;
+  --fs-4xl: 3rem;
+  --fs-5xl: 3.75rem;
+
+  --lh-tight: 1.05;
+  --lh-snug: 1.15;
+  --lh-body: 1.6;
+  --lh-code: 1.5;
+
+  /* --- Spacing (4px base) ---------------------------------------------- */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-12: 48px;
+  --sp-16: 64px;
+  --sp-24: 96px;
+  --sp-32: 128px;
+
+  --section-y: clamp(64px, 12vw, 128px);
+  --content-max: 1120px;
+  --measure: 68ch;
+  --nav-h: 60px;
+
+  /* --- Radius & elevation ---------------------------------------------- */
+  --r-sm: 8px;                 /* controls */
+  --r-md: 12px;                /* cards */
+  --r-lg: 16px;                /* terminal */
+  --r-full: 999px;
+
+  /* Elevation via border + subtle shadow, never glow. */
+  --elev-1: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 1px 2px rgba(0, 0, 0, 0.3);
+  --elev-2: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 8px 30px rgba(0, 0, 0, 0.35);
+  --elev-3: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 20px 60px rgba(0, 0, 0, 0.45);
+
+  /* --- Motion (DOM/CSS/SVG only; no WebGL) ----------------------------- */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);       /* decisive settle */
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1); /* verdict snap */
+  --dur-1: 120ms;
+  --dur-2: 200ms;
+  --dur-3: 320ms;
+  --dur-4: 520ms;
+
+  --focus-ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--brand);
+}
+
+/* ---- Light mode (P1): same semantics, mapped surfaces -------------------- */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #ffffff;
+  --bg-elev: #ffffff;
+  --surface-1: #f6f8fb;
+  --surface-2: #eef2f8;
+  --border: #e4e9f2;
+  --border-strong: #cdd6e6;
+  --text-hi: #0b0f19;
+  --text: #2b3446;
+  --text-mut: #475069;
+  --text-faint: #64748b;
+  --brand-ink: #ffffff;
+  --brand-glow: rgba(91, 140, 255, 0.14);
+  --elev-1: 0 1px 2px rgba(16, 24, 40, 0.06);
+  --elev-2: 0 8px 24px rgba(16, 24, 40, 0.08);
+  --elev-3: 0 20px 48px rgba(16, 24, 40, 0.12);
+}

@@ -1,0 +1,40 @@
+---
+interface Props {
+  eyebrow?: string;
+  title: string;
+  sub?: string;
+  align?: 'left' | 'center';
+  id?: string;
+}
+const { eyebrow, title, sub, align = 'left', id } = Astro.props;
+---
+
+<header class:list={['section-header', `is-${align}`]} data-reveal {...id ? { id } : {}}>
+  {eyebrow && <p class="eyebrow">{eyebrow}</p>}
+  <h2>{title}</h2>
+  {sub && <p class="sub measure">{sub}</p>}
+</header>
+
+<style>
+  .section-header {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+    margin-bottom: var(--sp-12);
+  }
+  .is-center {
+    align-items: center;
+    text-align: center;
+  }
+  h2 {
+    font-size: clamp(var(--fs-2xl), 4vw, var(--fs-3xl));
+    line-height: var(--lh-snug);
+  }
+  .sub {
+    font-size: var(--fs-md);
+    color: var(--text-mut);
+  }
+  .is-center .sub {
+    margin-inline: auto;
+  }
+</style>

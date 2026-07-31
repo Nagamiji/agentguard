@@ -1,4 +1,4 @@
-.PHONY: help install hooks up down migrate dev worker test lint typecheck check fmt protect usage eval-live status demo-cloud
+.PHONY: help install hooks up down migrate dev worker test lint typecheck check fmt protect usage eval-live status demo demo-record demo-cloud
 
 help:
 	@echo "install    - create venv + install dev deps"
@@ -15,6 +15,8 @@ help:
 	@echo "usage      - record today's token usage to reports/usage/ (NOTE=\"...\")"
 	@echo "eval-live  - run the REAL Vertex evaluation (costs money; needs gcloud ADC)"
 	@echo "status     - check current development, testing, and release status"
+	@echo "demo       - run the deterministic local-stack blocked-deploy demo"
+	@echo "demo-record - run the compact screen-recording demo and open its report"
 	@echo "demo-cloud - run the fully containerised multi-tenant SaaS demo flow"
 
 install:
@@ -84,6 +86,12 @@ status:
 	@printf "Security:      "
 	@(. .venv/bin/activate && pip-audit --skip-editable >/dev/null 2>&1 && echo "PASS") || echo "FAIL"
 	@echo "Release:       READY"
+
+demo:
+	bash scripts/demo.sh
+
+demo-record:
+	bash scripts/demo-record.sh
 
 demo-cloud:
 	bash scripts/demo-cloud.sh

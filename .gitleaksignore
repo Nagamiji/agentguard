@@ -1,0 +1,13 @@
+# Historical documentation examples used literal `Authorization: Bearer ...` placeholders.
+# Gitleaks reports the whole placeholder header as a curl-auth-header secret. These exact
+# fingerprints are false positives; keeping the exception fingerprint-specific ensures real
+# credentials in the same file or rule remain detectable.
+6b055b0b525bc34d1afdde75b5a06d68e527ab03:docs/authentication.md:curl-auth-header:30
+6b055b0b525bc34d1afdde75b5a06d68e527ab03:docs/authentication.md:curl-auth-header:49
+6b055b0b525bc34d1afdde75b5a06d68e527ab03:docs/authentication.md:curl-auth-header:62
+
+# Retired Next.js build artifacts from commit 6e8c1f5 contained generated preview/action
+# signing material. The Next.js site no longer exists and these keys are not used by any
+# deployed runtime. Keep the exception tied to the exact historical artifact fingerprints.
+6e8c1f529c9f810b8024bde614c9c41d8b095e97:website/.next/prerender-manifest.json:generic-api-key:1
+6e8c1f529c9f810b8024bde614c9c41d8b095e97:website/.next/server/server-reference-manifest.json:generic-api-key:1

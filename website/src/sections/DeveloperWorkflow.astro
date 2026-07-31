@@ -1,0 +1,126 @@
+---
+import { useTranslations } from '../i18n/utils';
+const lang = Astro.currentLocale || 'en';
+const t = useTranslations(lang as any);
+
+import SectionHeader from '../components/SectionHeader.astro';
+---
+
+<section class="section" id="workflow">
+  <div class="container">
+    <SectionHeader
+      eyebrow={t('workflow.title')}
+      title="Start offline. Add behavioural coverage when ready."
+      sub="The local check is deliberately honest about what it did—and what still needs a live simulation."
+    />
+
+    <div class="flow-container" data-reveal>
+
+      <div class="flow-step">
+        <div class="fs-num">1</div>
+        <div class="fs-content">
+          <h4>Developer installs package</h4>
+          <code>pip install agentguard-dev</code>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="fs-num">2</div>
+        <div class="fs-content">
+          <h4>Generate agentguard.yaml</h4>
+          <code>agentguard init</code>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="fs-num">3</div>
+        <div class="fs-content">
+          <h4>Run the offline static check</h4>
+          <code>agentguard scan --local</code>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="fs-num">4</div>
+        <div class="fs-content">
+          <h4>See the coverage boundary</h4>
+          <p>Static checks run; behavioural scenarios are marked skipped, never passed.</p>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="fs-num">5</div>
+        <div class="fs-content">
+          <h4>Add live simulation for deployment</h4>
+          <p>Connect a control plane to run the model and produce a signed gate verdict.</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<style>
+  .flow-container {
+    max-width: 600px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-4);
+    position: relative;
+  }
+
+  /* The connecting line */
+  .flow-container::before {
+    content: '';
+    position: absolute;
+    top: 20px;
+    bottom: 20px;
+    left: 15px;
+    width: 2px;
+    background: var(--border);
+    z-index: 1;
+  }
+
+  .flow-step {
+    display: flex;
+    gap: var(--sp-4);
+    position: relative;
+    z-index: 2;
+  }
+
+  .fs-num {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: var(--surface-2);
+    border: 1px solid var(--border-strong);
+    display: grid;
+    place-items: center;
+    font-family: var(--font-mono);
+    font-size: var(--fs-sm);
+    color: var(--brand);
+    font-weight: bold;
+  }
+
+  .fs-content {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: var(--sp-4);
+    flex-grow: 1;
+    box-shadow: var(--elev-1);
+    transition: transform var(--dur-2) var(--ease-out), border-color var(--dur-2) var(--ease-out);
+  }
+
+  .fs-content:hover {
+    border-color: var(--border-strong);
+    transform: translateX(4px);
+  }
+
+  .fs-content h4 { margin-bottom: var(--sp-2); color: var(--text-hi); }
+  .fs-content p { color: var(--text-mut); font-size: var(--fs-sm); margin: 0; }
+  .fs-content code { display: inline-block; margin-top: var(--sp-2); padding: 4px 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; color: var(--brand); font-family: var(--font-mono); font-size: 0.9em; }
+
+</style>

@@ -1,0 +1,132 @@
+---
+import Base from '../layouts/Base.astro';
+import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
+import CopyCommand from '../components/CopyCommand.astro';
+---
+
+<Base
+  title="AgentGuard documentation — honest agent security checks"
+  description="Install AgentGuard, run an offline static check, and add live behavioural simulation when you need a signed deployment verdict."
+>
+  <Nav />
+  <main id="main" class="docs">
+    <div class="container docs-shell">
+      <header class="docs-hero">
+        <p class="eyebrow">Documentation</p>
+        <h1>From install to an honest gate.</h1>
+        <p class="lede">
+          AgentGuard has two distinct modes. Offline static checks need no account or API key.
+          Behavioural simulation runs through a control plane. The output always says which mode
+          ran and which coverage is still missing.
+        </p>
+      </header>
+
+      <section class="doc-section" aria-labelledby="quickstart">
+        <div>
+          <p class="step">01 · offline quickstart</p>
+          <h2 id="quickstart">Run the first check locally</h2>
+          <p>
+            This validates structure, declared policies, and accidental credentials. It never
+            executes a model or tool and never reads your environment variables.
+          </p>
+        </div>
+        <div class="command-stack">
+          <CopyCommand command="pip install agentguard-dev" prompt="$" />
+          <CopyCommand command="agentguard init" prompt="$" />
+          <CopyCommand command="agentguard scan --local" prompt="$" />
+        </div>
+        <aside class="boundary">
+          <strong>Expected exit: 40 · INCOMPLETE</strong>
+          <span>
+            Static checks ran, but behavioural scenarios require a live model and are marked
+            skipped—not passed. This is a safety property, not an installation failure.
+          </span>
+        </aside>
+      </section>
+
+      <section class="doc-section" aria-labelledby="ci">
+        <div>
+          <p class="step">02 · CI</p>
+          <h2 id="ci">Choose the gate you mean</h2>
+          <p>
+            `agentguard init` writes a GitHub Actions workflow. A team may explicitly accept an
+            offline partial gate while it prepares live behavioural simulation.
+          </p>
+        </div>
+        <div class="command-stack">
+          <CopyCommand
+            command="agentguard scan --local --allow-incomplete-static --sarif findings.sarif"
+            prompt="$"
+          />
+        </div>
+        <aside class="boundary warn">
+          <strong>`--allow-incomplete-static` means partial coverage</strong>
+          <span>It does not turn skipped behavioural scenarios into passes.</span>
+        </aside>
+      </section>
+
+      <section class="doc-section" aria-labelledby="live">
+        <div>
+          <p class="step">03 · behavioural simulation</p>
+          <h2 id="live">Gate a real agent decision</h2>
+          <p>
+            Run or connect an AgentGuard control plane, then provide its URL, an API key, and the
+            registered agent identifier. The model can be challenged while its real tools remain
+            intercepted and unexecuted.
+          </p>
+        </div>
+        <pre class="code-block"><code>export AGENTGUARD_API_KEY=ag_your_key_here
+agentguard scan \
+  --api-url https://your-agentguard-host \
+  --agent my-support-bot \
+  --manifest manifest.json \
+  --environment prod \
+  --html report.html \
+  --sarif findings.sarif</code></pre>
+      </section>
+
+      <section class="doc-section" aria-labelledby="codes">
+        <div>
+          <p class="step">Reference</p>
+          <h2 id="codes">Exit-code contract</h2>
+        </div>
+        <div class="code-grid" role="list">
+          <div role="listitem"><code>0</code><span>allowed</span></div>
+          <div role="listitem"><code>10</code><span>error</span></div>
+          <div role="listitem"><code>20</code><span>blocked</span></div>
+          <div role="listitem"><code>30</code><span>unknown</span></div>
+          <div role="listitem"><code>40</code><span>incomplete</span></div>
+        </div>
+        <p class="fineprint">
+          Fail closed by default: error, blocked, unknown, and incomplete all return non-zero.
+        </p>
+      </section>
+    </div>
+  </main>
+  <Footer />
+</Base>
+
+<style>
+  .docs-shell { max-width: 900px; padding-block: clamp(56px, 9vw, 112px); }
+  .docs-hero { padding-bottom: var(--sp-16); border-bottom: 1px solid var(--border); }
+  h1 { max-width: 13ch; margin-top: var(--sp-4); font-size: clamp(2.5rem, 7vw, 4.5rem); line-height: var(--lh-tight); }
+  .lede { max-width: 66ch; margin-top: var(--sp-6); color: var(--text); font-size: var(--fs-md); }
+  .doc-section { display: grid; min-width: 0; gap: var(--sp-6); padding-block: var(--sp-16); border-bottom: 1px solid var(--border); }
+  .doc-section > * { min-width: 0; max-width: 100%; }
+  .step { color: var(--brand); font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: .08em; text-transform: uppercase; }
+  h2 { margin-top: var(--sp-2); font-size: clamp(var(--fs-xl), 4vw, var(--fs-3xl)); }
+  h2 + p { max-width: 68ch; margin-top: var(--sp-4); color: var(--text-mut); }
+  .command-stack { display: grid; min-width: 0; gap: var(--sp-3); width: 100%; max-width: 680px; }
+  .boundary { display: grid; gap: var(--sp-2); padding: var(--sp-5, 20px); color: var(--text); background: var(--info-dim); border: 1px solid color-mix(in srgb, var(--info) 40%, var(--border)); border-radius: var(--r-md); }
+  .boundary strong { color: var(--text-hi); }
+  .boundary span { color: var(--text-mut); }
+  .boundary.warn { background: var(--warn-dim); border-color: color-mix(in srgb, var(--warn) 40%, var(--border)); }
+  .code-block { overflow-x: auto; max-width: 100%; padding: var(--sp-6); color: var(--text); background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--r-md); line-height: var(--lh-code); }
+  .code-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--sp-3); }
+  .code-grid div { display: grid; gap: var(--sp-1); padding: var(--sp-4); background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--r-sm); }
+  .code-grid code { color: var(--brand); font-size: var(--fs-lg); font-weight: 700; }
+  .code-grid span { color: var(--text-mut); font-size: var(--fs-sm); }
+  .fineprint { color: var(--text-faint); font-size: var(--fs-sm); }
+  @media (max-width: 700px) { .code-grid { grid-template-columns: repeat(2, 1fr); } }
+</style>

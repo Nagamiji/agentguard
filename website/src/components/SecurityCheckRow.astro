@@ -1,0 +1,56 @@
+---
+// A single compiled check / finding line — used in Policy-as-code (§5) and the
+// report shape. Severity chip + check type + monospace detail.
+interface Props {
+  severity: 'HIGH' | 'CRITICAL' | 'MEDIUM' | 'LOW';
+  checkType: string;
+  detail: string;
+  tone?: 'danger' | 'neutral';
+}
+const { severity, checkType, detail, tone = 'danger' } = Astro.props;
+const sevTone =
+  severity === 'CRITICAL' || severity === 'HIGH'
+    ? 'danger'
+    : severity === 'MEDIUM'
+      ? 'warn'
+      : 'info';
+---
+
+<div class:list={['check', `t-${tone}`]}>
+  <span class:list={['sev', `s-${sevTone}`]}>{severity}</span>
+  <code class="type">{checkType}</code>
+  <span class="detail">{detail}</span>
+</div>
+
+<style>
+  .check {
+    display: grid;
+    grid-template-columns: auto auto 1fr;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    font-size: var(--fs-sm);
+  }
+  .t-danger { border-left: 2px solid var(--danger); }
+  .sev {
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    padding: 2px 7px;
+    border-radius: 5px;
+    line-height: 1.4;
+  }
+  .s-danger { color: var(--danger); background: var(--danger-dim); }
+  .s-warn { color: var(--warn); background: var(--warn-dim); }
+  .s-info { color: var(--info); background: var(--info-dim); }
+  .type { color: var(--code-key); font-size: var(--fs-sm); }
+  .detail { color: var(--text); min-width: 0; }
+  @media (max-width: 640px) {
+    .check { grid-template-columns: auto 1fr; }
+    .detail { grid-column: 1 / -1; color: var(--text-mut); }
+  }
+</style>

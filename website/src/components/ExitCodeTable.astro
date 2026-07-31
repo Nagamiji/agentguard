@@ -1,0 +1,73 @@
+---
+import { EXIT_CODES } from '../data/product';
+// The CI contract. 20 (blocked) and 30 (unknown) are the fail-closed rows.
+---
+
+<div class="ect" role="table" aria-label="AgentGuard exit codes">
+  <div class="ect-head" role="row">
+    <span role="columnheader">exit</span>
+    <span role="columnheader">decision</span>
+    <span role="columnheader">what it means for the deploy</span>
+  </div>
+  {EXIT_CODES.map((r) => (
+    <div class:list={['ect-row', `t-${r.tone}`, (r.code === 20 || r.code === 30) && 'is-failclosed']} role="row">
+      <code class="code" role="cell">{r.code}</code>
+      <span class="name" role="cell">{r.name}</span>
+      <span class="meaning" role="cell">{r.meaning}</span>
+    </div>
+  ))}
+</div>
+
+<style>
+  .ect {
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    overflow: hidden;
+    background: var(--surface-1);
+    font-size: var(--fs-sm);
+  }
+  .ect-head,
+  .ect-row {
+    display: grid;
+    grid-template-columns: 64px 108px 1fr;
+    gap: var(--sp-3);
+    align-items: center;
+    padding: var(--sp-3) var(--sp-4);
+  }
+  .ect-head {
+    color: var(--text-faint);
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--border);
+  }
+  .ect-row + .ect-row,
+  .ect-head + .ect-row { border-top: 1px solid var(--border); }
+  .code {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    text-align: center;
+    padding: 3px 0;
+    border-radius: 6px;
+    background: var(--surface-2);
+  }
+  .name { font-family: var(--font-mono); font-weight: 600; }
+  .meaning { color: var(--text-mut); }
+
+  .t-success .code { color: var(--success); }
+  .t-success .name { color: var(--success); }
+  .t-danger .code { color: var(--danger); background: var(--danger-dim); }
+  .t-danger .name { color: var(--danger); }
+  .t-warn .code { color: var(--warn); }
+  .t-warn .name { color: var(--warn); }
+
+  .is-failclosed { background: color-mix(in srgb, var(--warn) 4%, transparent); }
+
+  @media (max-width: 560px) {
+    .ect-head { display: none; }
+    .ect-row { grid-template-columns: 56px 1fr; row-gap: 2px; }
+    .meaning { grid-column: 2; }
+  }
+</style>

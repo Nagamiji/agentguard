@@ -1,0 +1,120 @@
+---
+import { useTranslations } from '../i18n/utils';
+const lang = Astro.currentLocale || 'en';
+const t = useTranslations(lang as any);
+
+import CopyCommand from '../components/CopyCommand.astro';
+import { SITE } from '../data/product';
+---
+
+<section class="section install" id="install">
+  <div class="container">
+    <div class="install-grid">
+      <!-- Installation Experience -->
+      <div class="install-card" data-reveal>
+        <div class="install-glimmer" aria-hidden="true"></div>
+        <div class="install-inner">
+          <p class="eyebrow">{t('install.title')}</p>
+          <h2>{t('install.title')}</h2>
+          <p class="install-sub measure">
+            {t('hero.subtitle')}
+          </p>
+
+          <div class="install-cta">
+            <CopyCommand command="pip install agentguard-dev" prompt="$" />
+            <br/>
+            <CopyCommand command="agentguard init && agentguard scan --local" prompt="$" />
+          </div>
+        </div>
+      </div>
+
+      <!-- PyPI Trust Section -->
+      <div class="pypi-card" data-reveal style="--reveal-delay: 100ms">
+        <div class="pypi-header">
+          <h3>{t('install.pypi_title')}</h3>
+          <p>{t('install.pypi_desc')}</p>
+        </div>
+
+        <div class="pypi-stats">
+          <div class="pypi-stat">
+            <span class="stat-label">Package</span>
+            <span class="stat-val">agentguard-dev</span>
+          </div>
+          <div class="pypi-stat">
+            <span class="stat-label">Version</span>
+            <span class="stat-val">0.1.1</span>
+          </div>
+          <div class="pypi-stat">
+            <span class="stat-label">Python</span>
+            <span class="stat-val">&gt;= 3.12</span>
+          </div>
+          <div class="pypi-stat">
+            <span class="stat-label">Maintainer</span>
+            <span class="stat-val">AgentGuard</span>
+          </div>
+        </div>
+
+        <div class="trust-triangle">
+          <p class="tt-label">{t('install.trust_triangle')}</p>
+          <div class="tt-nodes">
+            <a href="https://pypi.org/project/agentguard-dev/" target="_blank" rel="noopener noreferrer">{t('install.trust_pypi')}</a>
+            <span class="tt-arrow">→</span>
+            <a href={SITE.github} target="_blank" rel="noopener noreferrer">{t('install.trust_github')}</a>
+            <span class="tt-arrow">→</span>
+            <a href={SITE.docsUrl}>{t('install.trust_docs')}</a>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .install-grid {
+    display: grid;
+    grid-template-columns: 1fr 400px;
+    gap: var(--sp-6);
+  }
+
+  .install-card, .pypi-card {
+    position: relative;
+    overflow: hidden;
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    padding: var(--sp-8);
+  }
+
+  .install-glimmer {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(60% 100% at 50% 0%, var(--brand-glow), transparent 70%);
+    pointer-events: none;
+  }
+
+  .install-inner { position: relative; }
+  h2 { font-size: clamp(var(--fs-xl), 3vw, var(--fs-3xl)); line-height: var(--lh-snug); margin-top: var(--sp-2); }
+  .install-sub { margin-top: var(--sp-4); color: var(--text-mut); font-size: var(--fs-md); }
+
+  .install-cta { margin-top: var(--sp-6); display: flex; flex-direction: column; gap: var(--sp-3); width: 100%; max-width: 500px; }
+
+  .pypi-header h3 { font-size: var(--fs-lg); margin-bottom: var(--sp-2); color: var(--text-hi); }
+  .pypi-header p { color: var(--text-mut); font-size: var(--fs-sm); }
+
+  .pypi-stats { display: flex; flex-direction: column; gap: var(--sp-3); margin-top: var(--sp-6); padding-top: var(--sp-6); border-top: 1px solid var(--border); }
+  .pypi-stat { display: flex; justify-content: space-between; font-size: var(--fs-sm); }
+  .stat-label { color: var(--text-mut); }
+  .stat-val { color: var(--text-hi); font-family: var(--font-mono); }
+
+  .trust-triangle { margin-top: var(--sp-8); padding-top: var(--sp-6); border-top: 1px solid var(--border); text-align: center; }
+  .tt-label { font-family: var(--font-mono); font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-faint); margin-bottom: var(--sp-4); }
+  .tt-nodes { display: flex; align-items: center; justify-content: center; gap: var(--sp-3); font-size: var(--fs-sm); font-weight: 600; }
+  .tt-nodes a { color: var(--text); padding: var(--sp-1) var(--sp-3); background: var(--surface-2); border-radius: var(--r-sm); border: 1px solid var(--border); transition: border-color var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out); }
+  .tt-nodes a:hover { color: var(--text-hi); border-color: var(--brand); }
+  .tt-arrow { color: var(--text-faint); font-family: var(--font-mono); }
+
+  @media (max-width: 900px) {
+    .install-grid { grid-template-columns: 1fr; }
+  }
+</style>

@@ -1,0 +1,43 @@
+---
+import SectionHeader from '../components/SectionHeader.astro';
+import PipelineRail from '../components/PipelineRail.astro';
+import { PIPELINE_STEPS } from '../data/product';
+---
+
+<section class="section" id="how-it-works">
+  <div class="container">
+    <SectionHeader
+      eyebrow="How it works"
+      title="Four honest steps, one verdict."
+      sub="No model judging a model. AgentGuard reads what your agent is configured to do, compiles your policy into deterministic checks, simulates the tool calls, and gates the deploy."
+    />
+
+    <div class="rail-wrap" data-reveal>
+      <PipelineRail steps={PIPELINE_STEPS} variant="full" />
+    </div>
+
+    <p class="footline" data-reveal>
+      <span class="fl-key">simulate → never execute.</span>
+      The agent’s real tools are never called during a scan. AgentGuard reasons about the tool
+      calls the agent <em>would</em> make — so checking a destructive agent is never itself destructive.
+    </p>
+  </div>
+</section>
+
+<style>
+  .rail-wrap {
+    padding: var(--sp-12) var(--sp-8);
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+  }
+  .footline {
+    margin-top: var(--sp-8);
+    max-width: var(--measure);
+    color: var(--text-mut);
+    font-size: var(--fs-md);
+  }
+  .fl-key { color: var(--text-hi); font-weight: 600; font-family: var(--font-mono); font-size: var(--fs-base); margin-right: var(--sp-2); }
+  .footline em { color: var(--text); font-style: italic; }
+  @media (max-width: 720px) { .rail-wrap { padding: var(--sp-8) var(--sp-6); } }
+</style>

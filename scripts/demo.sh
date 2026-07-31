@@ -28,9 +28,16 @@ trap cleanup EXIT
 say() { printf "\n\033[1;36m== %s\033[0m\n" "$1"; }
 
 say "1/5  Starting Postgres + applying migrations"
-docker compose up -d >/dev/null
-for _ in $(seq 1 30); do docker compose exec -T postgres pg_isready -U keel >/dev/null 2>&1 && break; sleep 1; done
-"$VENV/alembic" upgrade head >/dev/null
+if [ "${DEMO_SKIP_INFRA:-0}" != "1" ]; then
+  docker compose up -d >/dev/null
+  for _ in $(seq 1 30); do docker compose exec -T postgres pg_isready -U keel >/dev/null 2>&1 && break; sleep 1; done
+else
+  MIGRATION_DSN="${KEEL_MIGRATION_DATABASE_URL/postgresql+psycopg/postgresql}"
+  pg_isready -d "$MIGRATION_DSN" >/dev/null
+fi
+if [ "${DEMO_SKIP_MIGRATIONS:-0}" != "1" ]; then
+  "$VENV/alembic" upgrade head >/dev/null
+fi
 
 say "2/5  Starting the AgentGuard API on :$PORT"
 "$VENV/uvicorn" keel.main:app --app-dir src --port "$PORT" --log-level warning &
@@ -87,4 +94,5 @@ if [ "$CODE" -eq 20 ]; then
   printf "\n\033[1;32mDemo complete: AgentGuard BLOCKED an unsafe deployment before it shipped.\033[0m\n"
 else
   printf "\n\033[1;33mScan finished with exit %s (with the scripted runner this should be 20; a real model may resist).\033[0m\n" "$CODE"
+  exit 1
 fi

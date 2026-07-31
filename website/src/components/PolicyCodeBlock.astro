@@ -1,0 +1,81 @@
+---
+import { highlight } from '../lib/highlight';
+
+interface Props {
+  code: string;
+  lang: 'json' | 'yaml' | 'bash';
+  filename?: string;
+  copy?: boolean;
+}
+const { code, lang, filename, copy = true } = Astro.props;
+const html = highlight(code, lang);
+---
+
+<figure class="codeblock">
+  {(filename || copy) && (
+    <figcaption class="cb-head">
+      {filename && <span class="cb-name">{filename}</span>}
+      {copy && (
+        <button class="cb-copy" type="button" data-copy={code} aria-label={`Copy ${filename ?? 'code'}`}>
+          <span data-copy-label>Copy</span>
+        </button>
+      )}
+    </figcaption>
+  )}
+  <pre class="cb-pre scroll-x"><code set:html={html} /></pre>
+</figure>
+
+<style>
+  .codeblock {
+    margin: 0;
+    min-width: 0;
+    max-width: 100%;
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    overflow: hidden;
+  }
+  .cb-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    padding: 8px var(--sp-4);
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--border);
+  }
+  .cb-name {
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    color: var(--text-mut);
+  }
+  .cb-copy {
+    border: 1px solid var(--border);
+    background: var(--surface-1);
+    color: var(--text-mut);
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 6px;
+    transition: color var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out);
+  }
+  .cb-copy:hover { color: var(--text-hi); border-color: var(--border-strong); }
+  .cb-copy.is-copied { color: var(--success); border-color: color-mix(in srgb, var(--success) 30%, transparent); }
+
+  .cb-pre {
+    margin: 0;
+    padding: var(--sp-4) var(--sp-6);
+    font-family: var(--font-mono);
+    font-size: var(--fs-sm);
+    line-height: var(--lh-code);
+    color: var(--text);
+    white-space: pre;
+  }
+
+  /* Token palette — colors from --code-* so it adapts to light mode too. */
+  .cb-pre :global(.tk-key) { color: var(--code-key); }
+  .cb-pre :global(.tk-str) { color: var(--code-str); }
+  .cb-pre :global(.tk-num) { color: var(--code-num); }
+  .cb-pre :global(.tk-punc) { color: var(--code-punc); }
+  .cb-pre :global(.tk-comment) { color: var(--code-comment); font-style: italic; }
+</style>
