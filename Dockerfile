@@ -24,8 +24,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PATH="/opt/venv/bin:$PATH"
 
-# Non-root: the app never needs write access to its own code.
-RUN useradd --create-home --uid 10001 keel
+# The runtime never installs packages. Remove the base image's system pip/setuptools
+# toolchain (and its vendored libraries) before copying the application venv; keeping build
+# tooling in production adds attack surface and caused fixable HIGH findings in Trivy.
+RUN python -m pip uninstall --yes setuptools wheel \
+    && python -m pip uninstall --yes pip \
+    && useradd --create-home --uid 10001 keel
 
 COPY --from=builder /opt/venv /opt/venv
 COPY migrations /app/migrations
