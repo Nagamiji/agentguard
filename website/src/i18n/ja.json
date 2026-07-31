@@ -17,7 +17,7 @@
   "install.title": "AgentGuardをインストール",
   "install.pypi_title": "PyPIで利用可能",
   "install.pypi_desc": "開発者が今日からインストールできるセキュリティゲート。",
-  "install.version": "バージョン: 0.1.0",
+  "install.version": "バージョン: 0.1.1",
   "install.compat": "要件: Python >= 3.12",
   "install.trust_triangle": "インストール → 検査 → 検証",
   "install.trust_pypi": "PyPI",

@@ -1,7 +1,7 @@
 {
   "name": "agentguard-website",
   "type": "module",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "AgentGuard marketing site — a declarative, fail-closed CI/CD deploy gate for AI agents.",
   "scripts": {

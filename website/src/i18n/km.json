@@ -17,7 +17,7 @@
   "install.title": "ដំឡើង AgentGuard",
   "install.pypi_title": "មាននៅលើ PyPI",
   "install.pypi_desc": "ច្រកត្រួតពិនិត្យសុវត្ថិភាពដែលអ្នកអភិវឌ្ឍន៍អាចដំឡើងបានថ្ងៃនេះ។",
-  "install.version": "កំណែ: 0.1.0",
+  "install.version": "កំណែ: 0.1.1",
   "install.compat": "ទាមទារ: Python >= 3.12",
   "install.trust_triangle": "ដំឡើង → ពិនិត្យ → ផ្ទៀងផ្ទាត់",
   "install.trust_pypi": "PyPI",

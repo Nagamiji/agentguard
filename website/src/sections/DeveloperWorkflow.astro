@@ -4,15 +4,14 @@ const lang = Astro.currentLocale || 'en';
 const t = useTranslations(lang as any);
 
 import SectionHeader from '../components/SectionHeader.astro';
-import CodeTabs from '../components/CodeTabs.astro';
 ---
 
 <section class="section" id="workflow">
   <div class="container">
     <SectionHeader
       eyebrow={t('workflow.title')}
-      title="Install, scan, and deploy with confidence."
-      sub="A deterministic, reproducible flow. Integrate in minutes."
+      title="Start offline. Add behavioural coverage when ready."
+      sub="The local check is deliberately honest about what it did—and what still needs a live simulation."
     />
 
     <div class="flow-container" data-reveal>
@@ -28,32 +27,32 @@ import CodeTabs from '../components/CodeTabs.astro';
       <div class="flow-step">
         <div class="fs-num">2</div>
         <div class="fs-content">
-          <h4>Create policy.yaml</h4>
-          <p>Define constraints for your agent's tools.</p>
+          <h4>Generate agentguard.yaml</h4>
+          <code>agentguard init</code>
         </div>
       </div>
 
       <div class="flow-step">
         <div class="fs-num">3</div>
         <div class="fs-content">
-          <h4>Run agentguard scan</h4>
-          <code>agentguard scan --agent my-bot --environment prod</code>
+          <h4>Run the offline static check</h4>
+          <code>agentguard scan --local</code>
         </div>
       </div>
 
       <div class="flow-step">
         <div class="fs-num">4</div>
         <div class="fs-content">
-          <h4>Receive signed security verdict</h4>
-          <p>Cryptographic HMAC validation of the scan results.</p>
+          <h4>See the coverage boundary</h4>
+          <p>Static checks run; behavioural scenarios are marked skipped, never passed.</p>
         </div>
       </div>
 
       <div class="flow-step">
         <div class="fs-num">5</div>
         <div class="fs-content">
-          <h4>CI/CD blocks unsafe deployment</h4>
-          <p>A non-zero exit code automatically fails the pipeline.</p>
+          <h4>Add live simulation for deployment</h4>
+          <p>Connect a control plane to run the model and produce a signed gate verdict.</p>
         </div>
       </div>
 

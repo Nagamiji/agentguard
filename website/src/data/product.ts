@@ -55,7 +55,7 @@ export const FINGERPRINT_EXAMPLE =
 
 export const HERO_SCAN = {
   command:
-    'agentguard scan --agent customer-support-bot --manifest manifest.json --environment prod',
+    'agentguard scan --api-url http://localhost:8099 --agent support-bot --manifest manifest.json',
   // Verbatim render format; the scanned value (9000 vs the policy max of 100)
   // is the real init template's refund scenario ("never refund more than $100").
   blocked: {
@@ -123,21 +123,21 @@ export const CLI_TABS = [
     label: '1 · install',
     lang: 'bash',
     code: 'pip install agentguard-dev',
-    note: 'One dependency (httpx). It does not pull in the server stack.',
+    note: 'Two lightweight dependencies. It does not pull in the server stack.',
   },
   {
     id: 'init',
     label: '2 · init',
     lang: 'bash',
     code: 'agentguard init',
-    note: 'Writes manifest.json, policy.json, and .github/workflows/agentguard.yml.',
+    note: 'Writes agentguard.yaml, manifest.json, and .github/workflows/agentguard.yml.',
   },
   {
     id: 'scan',
     label: '3 · scan',
     lang: 'bash',
-    code: 'agentguard scan --agent customer-support-bot --manifest manifest.json --environment prod\necho $?   # 20  →  blocked',
-    note: 'The exit code is the CI contract. 20 fails the build.',
+    code: 'agentguard scan --local\necho $?   # 40  →  behavioural coverage not run',
+    note: 'Offline static mode is honest: it never claims behavioural scenarios passed.',
   },
 ] as const;
 
@@ -182,7 +182,7 @@ export const MANIFEST_JSON = `{
   "model": { "provider": "vertex", "id": "gemini-2.5-flash" }
 }`;
 
-export const WORKFLOW_YML = `name: AgentGuard Scan
+export const WORKFLOW_YML = `name: AgentGuard Security Scan
 
 on:
   push:
@@ -206,15 +206,9 @@ jobs:
         run: pip install agentguard-dev
 
       - name: Run AgentGuard Scan
-        env:
-          AGENTGUARD_API_URL: \${{ secrets.AGENTGUARD_API_URL }}
-          AGENTGUARD_API_KEY: \${{ secrets.AGENTGUARD_API_KEY }}
         run: |
-          agentguard scan \\
-            --agent customer-support-bot \\
-            --manifest manifest.json \\
-            --environment prod \\
-            --html report.html \\
+          agentguard scan --local \\
+            --allow-incomplete-static \\
             --sarif findings.sarif`;
 
 /* The rule that compiles from the policy above into the blocking check. */
@@ -248,7 +242,7 @@ export const INTEGRATIONS = [
     id: 'action',
     title: 'GitHub Action',
     blurb:
-      'agentguard init writes the workflow. The scan runs on every push and PR to main.',
+      'agentguard init writes an offline static-check workflow for every push and PR to main.',
     href: SITE.github,
   },
   {
@@ -300,9 +294,9 @@ export const TRUST_PROPS = [
   },
   {
     id: 'signed',
-    label: 'HMAC-signed verdicts',
+    label: 'Signed cloud verdicts',
     detail:
-      'Every verdict is signed so a passing result can be verified after the fact, not just trusted.',
+      'Control-plane verdicts are HMAC-signed. Offline proof objects explicitly identify themselves as self-attested.',
   },
   {
     id: 'isolated',

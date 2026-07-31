@@ -17,7 +17,7 @@
   "install.title": "Install AgentGuard",
   "install.pypi_title": "Available on PyPI",
   "install.pypi_desc": "The security gate developers can install today.",
-  "install.version": "Version: 0.1.0",
+  "install.version": "Version: 0.1.1",
   "install.compat": "Requires: Python >= 3.12",
   "install.trust_triangle": "Install → Inspect → Verify",
   "install.trust_pypi": "PyPI",

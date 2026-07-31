@@ -10,7 +10,7 @@ import { WORKFLOW_YML, INTEGRATIONS, SARIF } from '../data/product';
     <SectionHeader
       eyebrow="CI/CD integration"
       title="One check in the pipeline you already have."
-      sub="agentguard init writes the workflow for you. It runs on every push and pull request to main; findings land in the PR as SARIF, in GitHub’s native Code-Scanning tab."
+      sub="agentguard init writes an offline workflow for every push and pull request. Static-only coverage is explicitly acknowledged; live simulation remains the deployment gate."
     />
 
     <div class="cicd-grid">
@@ -32,7 +32,7 @@ import { WORKFLOW_YML, INTEGRATIONS, SARIF } from '../data/product';
           </ul>
           <p class="sc-note">
             Emitted by tool <code>{SARIF.tool}</code>. GitHub renders each finding inline on the
-            changed lines — reviewable in the PR, no extra console.
+            findings in GitHub Code Scanning — reviewable in the PR, no extra console.
           </p>
         </div>
       </div>
@@ -49,7 +49,8 @@ import { WORKFLOW_YML, INTEGRATIONS, SARIF } from '../data/product';
 </section>
 
 <style>
-  .cicd-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: var(--sp-8); align-items: start; }
+  .cicd-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: var(--sp-8); align-items: start; }
+  .cicd-yaml, .cicd-side { min-width: 0; }
   .sarif-card { padding: var(--sp-6); background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--r-md); }
   .sc-h { font-size: var(--fs-md); color: var(--text-hi); font-weight: 600; margin-bottom: var(--sp-4); display: flex; align-items: baseline; gap: var(--sp-2); }
   .sc-h span { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text-faint); }
@@ -65,5 +66,5 @@ import { WORKFLOW_YML, INTEGRATIONS, SARIF } from '../data/product';
   .cards > li { display: flex; }
   .cards > li > :global(*) { width: 100%; }
 
-  @media (max-width: 860px) { .cicd-grid { grid-template-columns: 1fr; gap: var(--sp-8); } .cards { grid-template-columns: 1fr; } }
+  @media (max-width: 860px) { .cicd-grid { grid-template-columns: minmax(0, 1fr); gap: var(--sp-8); } .cards { grid-template-columns: minmax(0, 1fr); } }
 </style>

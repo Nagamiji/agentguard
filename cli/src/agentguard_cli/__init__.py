@@ -8,4 +8,4 @@ Fail closed: any error, or a verdict of `unknown`, exits non-zero by default. A 
 exits 0 when it could not tell is not a gate.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"

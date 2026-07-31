@@ -1,24 +1,23 @@
 ---
-import { useTranslations } from '../i18n/utils';
 const lang = Astro.currentLocale || 'en';
-const t = useTranslations(lang as any);
+const home = `/${lang === 'en' ? '' : lang + '/'}`;
 
 import { SITE } from '../data/product';
 const cols = [
   {
     title: 'Product',
     links: [
-      { label: 'How it works', href: '#how-it-works' },
-      { label: 'Policy-as-code', href: '#policy' },
-      { label: 'Security', href: '#security' },
-      { label: 'CI/CD', href: '#cicd' },
+      { label: 'How it works', href: `${home}#how-it-works` },
+      { label: 'Policy-as-code', href: `${home}#policy` },
+      { label: 'Security', href: `${home}#security` },
+      { label: 'CI/CD', href: `${home}#cicd` },
     ],
   },
   {
     title: 'Developers',
     links: [
       { label: 'Documentation', href: SITE.docsUrl },
-      { label: 'Quickstart', href: '#get-started' },
+      { label: 'Quickstart', href: `${home}#get-started` },
       { label: 'GitHub', href: SITE.github, external: true },
     ],
   },

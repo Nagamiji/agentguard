@@ -4,7 +4,6 @@ const lang = Astro.currentLocale || 'en';
 const t = useTranslations(lang as any);
 
 import CopyCommand from '../components/CopyCommand.astro';
-import CTAButton from '../components/CTAButton.astro';
 import { SITE } from '../data/product';
 ---
 
@@ -24,7 +23,7 @@ import { SITE } from '../data/product';
           <div class="install-cta">
             <CopyCommand command="pip install agentguard-dev" prompt="$" />
             <br/>
-            <CopyCommand command="agentguard scan --agent my-agent --environment production" prompt="$" />
+            <CopyCommand command="agentguard init && agentguard scan --local" prompt="$" />
           </div>
         </div>
       </div>
@@ -43,7 +42,7 @@ import { SITE } from '../data/product';
           </div>
           <div class="pypi-stat">
             <span class="stat-label">Version</span>
-            <span class="stat-val">0.1.0</span>
+            <span class="stat-val">0.1.1</span>
           </div>
           <div class="pypi-stat">
             <span class="stat-label">Python</span>

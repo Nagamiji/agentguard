@@ -1,0 +1,65 @@
+name: Publish CLI to TestPyPI
+
+# Safe release rehearsal. This workflow never targets production PyPI.
+# One-time setup on test.pypi.org:
+#   project: agentguard-dev
+#   owner/repository: Nagamiji/agentguard
+#   workflow: publish-cli-test.yml
+#   environment: testpypi
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build + validate release artifacts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build and inspect distributions
+        run: |
+          python -m pip install --upgrade build twine
+          python -m build cli/
+          python -m twine check cli/dist/*
+
+      - name: Smoke-test wheel in a clean environment
+        run: |
+          python -m venv /tmp/agentguard-release-smoke
+          /tmp/agentguard-release-smoke/bin/pip install cli/dist/agentguard*.whl
+          /tmp/agentguard-release-smoke/bin/agentguard --version
+          /tmp/agentguard-release-smoke/bin/agentguard --help
+          /tmp/agentguard-release-smoke/bin/agentguard init --dir /tmp/agentguard-smoke
+          (cd /tmp/agentguard-smoke && /tmp/agentguard-release-smoke/bin/agentguard scan --local --allow-incomplete-static)
+          if /tmp/agentguard-release-smoke/bin/pip show fastapi >/dev/null 2>&1; then
+            echo "::error::agentguard wheel pulled in the server stack"
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: agentguard-testpypi-dist
+          path: cli/dist/
+
+  publish-testpypi:
+    name: Publish to TestPyPI
+    needs: build
+    runs-on: ubuntu-latest
+    environment: testpypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: agentguard-testpypi-dist
+          path: dist/
+      - name: Publish only to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/

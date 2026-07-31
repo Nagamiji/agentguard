@@ -70,7 +70,7 @@ const miniSteps = PIPELINE_STEPS.map((s) => ({ id: s.id, title: s.title.split(' 
   .hero-inner {
     position: relative;
     display: grid;
-    grid-template-columns: 1.05fr 1fr;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
     gap: clamp(var(--sp-12), 6vw, var(--sp-32));
     align-items: center;
   }
@@ -96,7 +96,7 @@ const miniSteps = PIPELINE_STEPS.map((s) => ({ id: s.id, title: s.title.split(' 
   .dv-label { font-family: var(--font-mono); font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-faint); }
   .demo-rail { padding: var(--sp-4) var(--sp-4) 0; }
 
-  @media (max-width: 900px) {
+  @media (max-width: 1040px) {
     .hero-inner { grid-template-columns: 1fr; gap: var(--sp-12); }
     .hero-copy { max-width: 100%; }
     .hero-demo { order: 2; }

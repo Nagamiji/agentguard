@@ -17,7 +17,7 @@
   "install.title": "安装 AgentGuard",
   "install.pypi_title": "已发布于 PyPI",
   "install.pypi_desc": "开发者今天就可以安装的安全网关。",
-  "install.version": "版本: 0.1.0",
+  "install.version": "版本: 0.1.1",
   "install.compat": "要求: Python >= 3.12",
   "install.trust_triangle": "安装 → 检查 → 验证",
   "install.trust_pypi": "PyPI",

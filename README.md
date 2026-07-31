@@ -6,20 +6,30 @@ Status: **`DO-01` scaffold** — a runnable FastAPI app + worker + local stack +
 
 ## Install the CLI (`agentguard`)
 
-The deployment gate a developer runs in CI is a standalone, lightweight package (its only
-dependency is `httpx` — it does **not** pull in the server stack). Source lives in `cli/`.
+The deployment gate a developer runs in CI is a standalone, lightweight package (`httpx` +
+`PyYAML`; it does **not** pull in the server stack). Source lives in `cli/`.
 
 ```bash
 pip install agentguard-dev      # once published to PyPI (see .github/workflows/publish-cli.yml)
 agentguard --help
 ```
 
-First scan (talks to an AgentGuard control plane):
+First offline check (no API key or control plane):
+
+```bash
+agentguard init
+agentguard scan --local
+# exit 40: static checks ran; behavioural scenarios were honestly skipped
+```
+
+Use `--allow-incomplete-static` only when your CI intentionally accepts a partial,
+static-only gate. For behavioural simulation, connect the CLI to an AgentGuard control
+plane:
 
 ```bash
 export AGENTGUARD_API_KEY=ag_your_key_here
 agentguard scan --api-url https://your-host --agent my-bot --manifest manifest.json --html report.html
-# exit 0 allowed · 20 blocked · 10 error · 30 unknown  (the CI contract)
+# exit 0 allowed · 20 blocked · 10 error · 30 unknown · 40 incomplete
 ```
 
 Full CLI docs: [`cli/README.md`](cli/README.md). Packaging, release & Trusted-Publishing

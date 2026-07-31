@@ -56,7 +56,7 @@ const NAV_LINKS = [
         <option value="/ja/" selected={lang === 'ja'}>日本語</option>
         <option value="/zh-cn/" selected={lang === 'zh-cn'}>简体中文</option>
       </select>
-      <CTAButton href="#get-started" variant="primary">Get started</CTAButton>
+      <span class="start-cta"><CTAButton href={`/${lang === 'en' ? '' : lang + '/'}#get-started`} variant="primary">Get started</CTAButton></span>
     </div>
 
     <details class="menu">
@@ -150,6 +150,7 @@ const NAV_LINKS = [
   }
   @media (max-width: 620px) {
     .nav-actions .theme-toggle { display: none; }
+    .start-cta { display: none; }
     .menu { display: block; }
   }
 </style>

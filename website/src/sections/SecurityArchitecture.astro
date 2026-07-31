@@ -1,8 +1,4 @@
 ---
-import { useTranslations } from '../i18n/utils';
-const lang = Astro.currentLocale || 'en';
-const t = useTranslations(lang as any);
-
 import SectionHeader from '../components/SectionHeader.astro';
 import { TRUST_PROPS, FINGERPRINT } from '../data/product';
 
@@ -10,7 +6,7 @@ const flow = [
   { label: 'Agent', sub: 'manifest.json — prompts, tools, model', note: null },
   { label: 'Policy Engine', sub: 'compiles policy → deterministic checks', note: 'deterministic' },
   { label: 'Evaluation', sub: 'simulates tool calls, asserts checks', note: 'simulate · never execute' },
-  { label: 'Security Verdict', sub: 'allowed · blocked · unknown — HMAC-signed', note: 'fail-closed' },
+  { label: 'Security Verdict', sub: 'allowed · blocked · unknown — signed in cloud', note: 'fail-closed' },
   { label: 'Deployment Decision', sub: 'exit code gates the pipeline', note: null },
 ];
 ---
