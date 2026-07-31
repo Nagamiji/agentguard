@@ -92,10 +92,16 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Use short sha extension if tag exists to avoid conflicts
+          # actions/checkout does not fetch every remote tag. Query origin directly so an
+          # existing release tag cannot be mistaken for an available local tag name.
           FINAL_TAG="$TAG"
-          if git rev-parse "$FINAL_TAG" >/dev/null 2>&1; then
+          if git ls-remote --exit-code --tags origin "refs/tags/$FINAL_TAG" >/dev/null 2>&1; then
             FINAL_TAG="$TAG-${SHA:0:7}"
+          fi
+
+          if git ls-remote --exit-code --tags origin "refs/tags/$FINAL_TAG" >/dev/null 2>&1; then
+            echo "::error::Release tag $FINAL_TAG already exists"
+            exit 1
           fi
 
           # Tag and push
