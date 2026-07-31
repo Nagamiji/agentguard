@@ -12,9 +12,13 @@ COPY pyproject.toml README.md ./
 COPY src ./src
 # Use a regular (non-editable) install so the package is fully contained in the venv
 # and does not need /build/src to exist in the runtime stage.
+# The application is fully installed before pip/setuptools/wheel are removed: they are
+# build tools, not runtime dependencies, and removing them drops their vendored libraries.
 RUN python -m venv /opt/venv \
     && /opt/venv/bin/pip install -U pip setuptools wheel \
-    && /opt/venv/bin/pip install --no-build-isolation .
+    && /opt/venv/bin/pip install --no-build-isolation . \
+    && /opt/venv/bin/pip uninstall --yes setuptools wheel \
+    && /opt/venv/bin/pip uninstall --yes pip
 
 
 FROM python:3.12-slim AS runtime
