@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agentguard-dev"
-version = "0.1.1"
-description = "AgentGuard CLI — the deployment gate that blocks unsafe AI agents in CI."
+version = "0.1.2"
+description = "An honest pre-deployment reliability and security gate for AI agents."
 readme = "README.md"
 requires-python = ">=3.12"
 license = "Apache-2.0"
@@ -26,8 +26,11 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/Nagamiji/agentguard"
+Homepage = "https://nagamiji.github.io/agentguard/"
+Documentation = "https://nagamiji.github.io/agentguard/docs/"
 Repository = "https://github.com/Nagamiji/agentguard"
+Issues = "https://github.com/Nagamiji/agentguard/issues"
+PyPI = "https://pypi.org/project/agentguard-dev/"
 
 [project.scripts]
 agentguard = "agentguard_cli.main:main"
