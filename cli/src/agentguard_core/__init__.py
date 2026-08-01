@@ -7,4 +7,4 @@ verdict to the wrong configuration. `tests/test_cli_core_no_drift.py` fails CI i
 files ever diverge; update both together.
 """
 
-__version__ = "0.1.1"
+__version__ = "0.1.2"

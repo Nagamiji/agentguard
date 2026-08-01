@@ -7,7 +7,7 @@ name: Publish CLI
 # `publish-cli.yml`, environment `pypi`. Until that is configured the publish step is the
 # only thing that fails; the build + install smoke test still run and gate the tag.
 #
-# Tag namespace: `cli-v*` (e.g. cli-v0.1.1), kept separate from the platform's own
+# Tag namespace: `cli-v*` (e.g. cli-v0.1.2), kept separate from the platform's own
 # versioning so the two release cadences never collide. The tag version must match
 # cli/pyproject.toml's version (verified below).
 
